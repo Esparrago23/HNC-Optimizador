@@ -2,6 +2,7 @@ import json
 import itertools
 import math
 import random
+from calendar import monthcalendar, monthrange
 from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -116,40 +117,28 @@ def add_months(year: int, month: int, delta: int) -> Tuple[int, int]:
 
 
 def days_in_month(year: int, month: int) -> int:
-    if month == 12:
-        nxt = date(year + 1, 1, 1)
-    else:
-        nxt = date(year, month + 1, 1)
-    return (nxt - date(year, month, 1)).days
+    return monthrange(year, month)[1]
 
 
 def total_saturdays(year: int, month: int) -> int:
-    total = 0
-    for d in range(1, days_in_month(year, month) + 1):
-        if date(year, month, d).weekday() == 5:
-            total += 1
-    return total
+    return sum(1 for week in monthcalendar(year, month) if week[5] != 0)
 
 
 def nth_weekday_dates(year: int, month: int, weekday: int, count: int) -> List[str]:
-    matches: List[str] = []
-    for d in range(1, days_in_month(year, month) + 1):
-        current = date(year, month, d)
-        if current.weekday() == weekday:
-            matches.append(current.isoformat())
-            if len(matches) >= count:
-                break
-    return matches
+    return all_weekday_dates(year, month, weekday)[:max(0, count)]
 
 
 def all_weekday_dates(year: int, month: int, weekday: int) -> List[str]:
     """Devuelve todas las fechas de un weekday dentro del mes (en orden)."""
-    matches: List[str] = []
-    for d in range(1, days_in_month(year, month) + 1):
-        current = date(year, month, d)
-        if current.weekday() == weekday:
-            matches.append(current.isoformat())
-    return matches
+    if weekday < 0 or weekday > 6:
+        return []
+
+    return [
+        date(year, month, day_num).isoformat()
+        for week in monthcalendar(year, month)
+        for day_num in [week[weekday]]
+        if day_num != 0
+    ]
 
 
 def weekly_restriction_dates(year: int, month: int, base_weekday: int, days_per_week: int) -> List[str]:
