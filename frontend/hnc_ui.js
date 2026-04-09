@@ -164,12 +164,11 @@ function applyConfigToUI(config) {
 
 function imecaClassify(value) {
   const imeca = Number(value);
-  if (imeca <= 50) return { label: "Buena", color: "#0284c7" };
-  if (imeca <= 100) return { label: "Aceptable", color: "#0d9488" };
-  if (imeca <= 150) return { label: "Regular", color: "#ca8a04" };
-  if (imeca <= 200) return { label: "Mala", color: "#ea580c" };
-  if (imeca <= 300) return { label: "Muy mala", color: "#dc2626" };
-  return { label: "Extrema", color: "#7c3aed" };
+  if (imeca <= 50) return { label: "Buena", color: "#16a34a" };
+  if (imeca <= 100) return { label: "Aceptable", color: "#eab308" };
+  if (imeca <= 150) return { label: "Mala", color: "#f97316" };
+  if (imeca <= 200) return { label: "Muy Mala", color: "#dc2626" };
+  return { label: "Extremadamente Mala", color: "#8b5cf6" };
 }
 
 function updateImecaBadgeOnly(value) {
@@ -247,10 +246,49 @@ function normalizeResultForUI(result) {
   }
   const grupos = { Amarillo:[5,6], Rosa:[7,8], Rojo:[3,4], Verde:[1,2], Azul:[9,0] };
   const calendario = {};
+
+  const contaminationLabelMap = {
+    buena: "Buena",
+    aceptable: "Aceptable",
+    mala: "Mala",
+    muy_mala: "Muy Mala",
+    extrema: "Extremadamente Mala",
+  };
+
   for (const mesData of meses) {
     const key = `${mesData.year}-${String(mesData.mes).padStart(2,"0")}`;
+    const castigosH00 = {};
+    const castigosH0 = {};
     const castigosH1 = {};
     const castigosH2 = {};
+    for (const [color, cfg] of Object.entries(mesData?.h00?.por_color || {})) {
+      const dia = (cfg.dia_base || "").toLowerCase();
+      const diaNormal = dia === "miercoles" ? "Miércoles" : `${dia.slice(0,1).toUpperCase()}${dia.slice(1)}`;
+      const horario = `${String(cfg.horario?.[0] ?? 5).padStart(2, "0")}:00 a ${String(cfg.horario?.[1] ?? 22).padStart(2, "0")}:00`;
+      const zona = `${(cfg.zona || "total").slice(0, 1).toUpperCase()}${(cfg.zona || "total").slice(1)}`;
+      castigosH00[color] = {
+        placas: grupos[color] || [], dia_normal: diaNormal, dias_extra: [],
+        fechas_restriccion: Array.isArray(cfg.fechas_restriccion) ? cfg.fechas_restriccion : [],
+        sabados: Array.isArray(cfg.sabados) ? cfg.sabados : [],
+        total_sabados_castigados: 0,
+        horario: horario,
+        zona: zona,
+      };
+    }
+    for (const [color, cfg] of Object.entries(mesData?.h0?.por_color || {})) {
+      const dia = (cfg.dia_base || "").toLowerCase();
+      const diaNormal = dia === "miercoles" ? "Miércoles" : `${dia.slice(0,1).toUpperCase()}${dia.slice(1)}`;
+      const horario = `${String(cfg.horario?.[0] ?? 5).padStart(2, "0")}:00 a ${String(cfg.horario?.[1] ?? 22).padStart(2, "0")}:00`;
+      const zona = `${(cfg.zona || "total").slice(0, 1).toUpperCase()}${(cfg.zona || "total").slice(1)}`;
+      castigosH0[color] = {
+        placas: grupos[color] || [], dia_normal: diaNormal, dias_extra: [],
+        fechas_restriccion: Array.isArray(cfg.fechas_restriccion) ? cfg.fechas_restriccion : [],
+        sabados: Array.isArray(cfg.sabados) ? cfg.sabados : [],
+        total_sabados_castigados: 0,
+        horario: horario,
+        zona: zona,
+      };
+    }
     for (const [color, cfg] of Object.entries(mesData?.h1?.por_color || {})) {
       const dia = (cfg.dia_base || "").toLowerCase();
       const diaNormal = dia === "miercoles" ? "Miércoles" : `${dia.slice(0,1).toUpperCase()}${dia.slice(1)}`;
@@ -278,7 +316,9 @@ function normalizeResultForUI(result) {
       castigosH2[color] = {
         placas: grupos[color] || [], dia_normal: diaNormal,
         dias_extra: diasExtra, fechas_extra: Array.isArray(cfg.extras) ? cfg.extras : [],
+        fechas_restriccion: Array.isArray(cfg.fechas_restriccion) ? cfg.fechas_restriccion : [],
         sabados: Array.isArray(cfg.sabados) ? cfg.sabados : [],
+        restriccion_total: Boolean(cfg.restriccion_total),
         total_sabados_castigados: Array.isArray(cfg.sabados) ? cfg.sabados.length : 0,
         horario: horario,
         zona: zona,
@@ -286,12 +326,22 @@ function normalizeResultForUI(result) {
     }
     const h1Verde = mesData?.h1?.por_color?.Verde || { horario:[5,22], zona:"total" };
     const h2Verde = mesData?.h2?.por_color?.Verde || { horario:[5,22], zona:"total" };
-    const estado = mesData.contaminacion || "normal";
+    const estado = mesData.contaminacion || "aceptable";
+    const estadoLabel = contaminationLabelMap[estado] || estado;
+
     calendario[key] = {
-      estado_contaminacion: `${estado.slice(0,1).toUpperCase()}${estado.slice(1)}`,
+      estado_contaminacion: estadoLabel,
       castigos_hologramas: {
-        H00: { regla: "Ninguno. Circulan libremente." },
-        H0: { regla: "Ninguno. Circulan libremente." },
+        H00: Object.values(castigosH00).every(info => (info.fechas_restriccion || []).length === 0) ? { regla: "Ninguno. Circulan libremente." } : {
+          horario: `${String((mesData?.h00?.por_color?.Verde?.horario?.[0] ?? 5)).padStart(2,"0")}:00 a ${String((mesData?.h00?.por_color?.Verde?.horario?.[1] ?? 22)).padStart(2,"0")}:00`,
+          zona: `${((mesData?.h00?.por_color?.Verde?.zona || "total").slice(0,1).toUpperCase())}${((mesData?.h00?.por_color?.Verde?.zona || "total").slice(1))}`,
+          colores: castigosH00,
+        },
+        H0: Object.keys(castigosH0).length > 0 ? {
+          horario: `${String((mesData?.h0?.por_color?.Verde?.horario?.[0] ?? 5)).padStart(2,"0")}:00 a ${String((mesData?.h0?.por_color?.Verde?.horario?.[1] ?? 22)).padStart(2,"0")}:00`,
+          zona: `${((mesData?.h0?.por_color?.Verde?.zona || "total").slice(0,1).toUpperCase())}${((mesData?.h0?.por_color?.Verde?.zona || "total").slice(1))}`,
+          colores: castigosH0,
+        } : { regla: "Ninguno. Circulan libremente." },
         H1: {
           horario: `${String(h1Verde.horario?.[0]??5).padStart(2,"0")}:00 a ${String(h1Verde.horario?.[1]??22).padStart(2,"0")}:00`,
           zona: `${(h1Verde.zona||"total").slice(0,1).toUpperCase()}${(h1Verde.zona||"total").slice(1)}`,
@@ -414,13 +464,16 @@ function getRestrictedDigitsForDay(monthData, holograma, dt) {
   const colores = castigos.colores || {};
   const saturdayNumber = getSaturdayNumber(dt);
   const restrictedDigits = [];
+  const isDateOnlyHologram = holograma === "H0" || holograma === "H00";
+
   for (const [color, info] of Object.entries(colores)) {
     const placas = info.placas || [];
-    const isNormalDay = info.dia_normal === dayName;
+    const isNormalDay = !isDateOnlyHologram && info.dia_normal === dayName;
     const isSaturday = dayName === "Sábado";
-    const isSaturdayRestricted = isSaturday && Array.isArray(info.sabados) && info.sabados.includes(saturdayNumber);
-    const isExtraDay = Array.isArray(info.fechas_extra) && info.fechas_extra.includes(isoDate);
-    if (isNormalDay || isSaturdayRestricted || isExtraDay) {
+    const dateBasedRestricted = Array.isArray(info.fechas_restriccion) && info.fechas_restriccion.includes(isoDate);
+    const isSaturdayRestricted = !isDateOnlyHologram && isSaturday && Array.isArray(info.sabados) && info.sabados.includes(saturdayNumber);
+    const isExtraDay = !isDateOnlyHologram && Array.isArray(info.fechas_extra) && info.fechas_extra.includes(isoDate);
+    if (isDateOnlyHologram ? dateBasedRestricted : (isNormalDay || isSaturdayRestricted || isExtraDay || dateBasedRestricted)) {
       placas.forEach(p => restrictedDigits.push(p));
     }
   }
@@ -459,15 +512,18 @@ function renderDayDetail() {
   let dayHorario = castigos.horario || "Libre";
   let dayZona = castigos.zona || "Total";
   let matchedColors = [];
+  const isDateOnlyHologram = holograma === "H0" || holograma === "H00";
+
   for (const [color, info] of Object.entries(colores)) {
     const isoDate = state.selectedDate;
-    const isNormalDay = info.dia_normal === dayName;
+    const isNormalDay = !isDateOnlyHologram && info.dia_normal === dayName;
     const isSaturday = dayName === "Sábado";
-    const isSaturdayRestricted = isSaturday && Array.isArray(info.sabados) && info.sabados.includes(getSaturdayNumber(dt));
-    const isExtraDay = Array.isArray(info.fechas_extra) && info.fechas_extra.includes(isoDate);
-    if (isNormalDay || isSaturdayRestricted || isExtraDay) {
+    const isSaturdayRestricted = !isDateOnlyHologram && isSaturday && Array.isArray(info.sabados) && info.sabados.includes(getSaturdayNumber(dt));
+    const isExtraDay = !isDateOnlyHologram && Array.isArray(info.fechas_extra) && info.fechas_extra.includes(isoDate);
+    const isDateBasedRestricted = Array.isArray(info.fechas_restriccion) && info.fechas_restriccion.includes(isoDate);
+    if (isDateOnlyHologram ? isDateBasedRestricted : (isNormalDay || isSaturdayRestricted || isExtraDay || isDateBasedRestricted)) {
       matchedColors.push({ color, info });
-      if (isNormalDay || isSaturdayRestricted) {
+      if (isDateOnlyHologram ? isDateBasedRestricted : (isNormalDay || isSaturdayRestricted || isDateBasedRestricted)) {
         dayHorario = info.horario || castigos.horario || "Libre";
         dayZona = info.zona || castigos.zona || "Total";
       }
@@ -479,9 +535,12 @@ function renderDayDetail() {
     html += `<strong>Restricciones por color:</strong><br/>`;
     for (const { color, info } of matchedColors) {
       const placas = info.placas?.join(",") || "—";
-      const iNormal = info.dia_normal === dayName ? " ✓" : "";
+      const iNormal = (!isDateOnlyHologram && info.dia_normal === dayName) ? " ✓" : "";
       const fechasExtra = Array.isArray(info.fechas_extra) ? info.fechas_extra : [];
-      const extrasTxt = fechasExtra.length ? ` | extras: ${fechasExtra.join(", ")}` : "";
+      const fechasRestr = Array.isArray(info.fechas_restriccion) ? info.fechas_restriccion : [];
+      const extrasTxt = fechasRestr.length
+        ? ` | fechas: ${fechasRestr.join(", ")}`
+        : (fechasExtra.length ? ` | extras: ${fechasExtra.join(", ")}` : "");
       const colorHorario = info.horario || "—";
       const colorZona = info.zona || "—";
       html += `  <span class="bloque-tag">${color} (placas ${placas})${iNormal} | ${colorHorario} | ${colorZona}${extrasTxt}</span>`;
@@ -518,7 +577,7 @@ function loadFiles() {
 function updateEnvSummary() {
   if (!els.envSummary) return;
   const imeca = els.imecaSlider?.value || 150;
-  const nivel = imeca > 200 ? "Crítico" : imeca > 150 ? "Desfavorable" : "Normal";
+  const nivel = imecaClassify(imeca).label;
   els.envSummary.textContent = `IMECA: ${imeca} (${nivel})`;
   updateImecaBadgeOnly(imeca);
 }
@@ -645,10 +704,14 @@ async function fetchLastResult() {
 
 function updateStats() {
   if (!state.result?.calendario_meses) return;
-  let countH1 = 0, countH2 = 0;
+  let countH00 = 0, countH1 = 0, countH2 = 0;
   for (const monthData of Object.values(state.result.calendario_meses)) {
+    const h00Cols = monthData?.castigos_hologramas?.H00?.colores || {};
     const h1Cols = monthData?.castigos_hologramas?.H1?.colores || {};
     const h2Cols = monthData?.castigos_hologramas?.H2?.colores || {};
+    for (const info of Object.values(h00Cols)) {
+      countH00 += Array.isArray(info.fechas_restriccion) ? info.fechas_restriccion.length : 0;
+    }
     for (const info of Object.values(h1Cols)) {
       countH1 += info.total_sabados_castigados || 0;
     }
@@ -660,7 +723,7 @@ function updateStats() {
   if (els.statFitness) els.statFitness.textContent = `Fitness: ${Number(state.result?.mejor_fitness || 0).toFixed(4)}`;
   if (els.statH1) els.statH1.textContent = `H1 Sáb: ${countH1}`;
   if (els.statH2) els.statH2.textContent = `H2 Sáb: ${countH2}`;
-  if (els.statH00) els.statH00.textContent = `H00: Libre`;
+  if (els.statH00) els.statH00.textContent = countH00 > 0 ? `H00 Fechas: ${countH00}` : "H00: Libre";
   if (els.fitnessLabel) els.fitnessLabel.textContent = `Mejor fitness: ${Number(state.result?.mejor_fitness || 0).toFixed(4)}`;
 }
 

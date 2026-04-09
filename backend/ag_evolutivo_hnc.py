@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple
 # Gen  7   : zona_h2            (< 0.2 → centro, si no → total)
 # Gen  8   : sabados_h1         (0 – 3)
 # Gen  9   : sabados_h2         (3 – total_sab del mes)
-# Gen 10   : extras_h2          (0 – 3 fechas adicionales para H2)
+# Gen 10   : extras_h2          (0 – 2 fechas adicionales para H2)
 # Gen 11-15: color → día        (5 colores)
 GENES = 16
 DEFAULT_POP_SIZE = 100
@@ -69,9 +69,11 @@ DIAS_SEMANA_LOWER = ["lunes", "martes", "miercoles", "jueves", "viernes"]
 # FACTORES DE CONTAMINACIÓN — mapeo nivel → peso para el AG
 # ============================================================================
 CONTAMINATION_FACTORS: Dict[str, float] = {
-    "baja":   0.50,   # poca contaminación → AG prioriza economía
-    "normal": 1.00,   # contaminación media → balance
-    "alta":   1.80,   # alta contaminación → AG prioriza ambiente
+    "buena": 0.35,
+    "aceptable": 0.90,
+    "mala": 1.45,
+    "muy_mala": 2.20,
+    "extrema": 2.90,
 }
 
 # Rangos válidos de sábados por holograma/contaminación (según reglas HNC)
@@ -140,16 +142,102 @@ def nth_weekday_dates(year: int, month: int, weekday: int, count: int) -> List[s
     return matches
 
 
+def all_weekday_dates(year: int, month: int, weekday: int) -> List[str]:
+    """Devuelve todas las fechas de un weekday dentro del mes (en orden)."""
+    matches: List[str] = []
+    for d in range(1, days_in_month(year, month) + 1):
+        current = date(year, month, d)
+        if current.weekday() == weekday:
+            matches.append(current.isoformat())
+    return matches
+
+
+def weekly_restriction_dates(year: int, month: int, base_weekday: int, days_per_week: int) -> List[str]:
+    """
+    Devuelve fechas para castigos semanales dentro del mes.
+    - 1 día/semana: weekday base.
+    - 2 días/semana: weekday base + siguiente weekday hábil.
+    - 3 días/semana: weekday base + dos siguientes weekdays hábiles.
+    """
+    if days_per_week <= 0:
+        return []
+
+    dates = list(all_weekday_dates(year, month, base_weekday))
+    if days_per_week >= 2:
+        second_weekday = (base_weekday + 1) % 5
+        dates.extend(all_weekday_dates(year, month, second_weekday))
+    if days_per_week >= 3:
+        third_weekday = (base_weekday + 2) % 5
+        dates.extend(all_weekday_dates(year, month, third_weekday))
+
+    return sorted(set(dates))
+
+
+def color_month_salt(year: int, month: int, color: str) -> int:
+    """Genera una semilla estable por mes y color."""
+    color_index = COLOR_ORDER.index(color) if color in COLOR_ORDER else 0
+    color_weight = sum((idx + 1) * ord(ch) for idx, ch in enumerate(color))
+    return (year * 97) + (month * 31) + ((color_index + 1) * 53) + color_weight
+
+
+def spread_weekday_dates(
+    year: int,
+    month: int,
+    weekday: int,
+    count: int,
+    salt: int = 0,
+    phase_bias: int = 0,
+) -> List[str]:
+    """
+    Selecciona fechas del mismo weekday en bloques contiguos.
+
+    La selección se desplaza con una semilla estable por mes/color, pero los
+    días devueltos siempre quedan pegados en la secuencia de ocurrencias del
+    weekday. Eso evita combinaciones tipo segunda y cuarta semana.
+    """
+    if count <= 0:
+        return []
+
+    all_dates = all_weekday_dates(year, month, weekday)
+    if not all_dates:
+        return []
+
+    if count >= len(all_dates):
+        return all_dates[:count]
+
+    mixed_salt = salt ^ (salt >> 11) ^ (salt >> 19)
+    max_start = len(all_dates) - count
+    start = (mixed_salt + phase_bias) % (max_start + 1)
+
+    if count == 1:
+        single_idx = (mixed_salt + phase_bias + month + weekday) % len(all_dates)
+        return [all_dates[single_idx]]
+
+    return all_dates[start:start + count]
+
+
 def contamination_for_month(month: int, nivel_imeca: float) -> str:
-    if nivel_imeca >= 220:
-        return "alta"
-    if nivel_imeca <= 90:
-        return "baja"
-    if month in (5, 6):
-        return "alta"
-    if month in (7, 8):
-        return "baja"
-    return "normal"
+    _ = month
+    imeca_ref = float(nivel_imeca)
+
+    if imeca_ref <= 50:
+        return "buena"
+    if imeca_ref <= 100:
+        return "aceptable"
+    if imeca_ref <= 150:
+        return "mala"
+    if imeca_ref <= 200:
+        return "muy_mala"
+    return "extrema"
+
+
+def h0_limits_from_imeca(nivel_imeca: float) -> Tuple[int, int]:
+    """Límites suaves de H0: el AG decide dentro de estos topes."""
+    if nivel_imeca > 200:
+        return 2, 0
+    if nivel_imeca > 150:
+        return 1, 0
+    return 0, 0
 
 
 def sat_list(total_sab: int, wanted: int) -> List[int]:
@@ -277,6 +365,7 @@ def construir_reglas_mes(
     contaminacion: str,
     color_to_day_lower: Dict[str, str],
     ag_decisions: Optional[Dict[str, Any]] = None,
+    nivel_imeca: float = 150.0,
 ) -> Dict[str, Any]:
     """
     Construye las reglas de restricción para un mes dado aplicando las
@@ -289,35 +378,62 @@ def construir_reglas_mes(
     """
     total_sab = total_saturdays(year, month)
 
-    # ── Defaults de fallback (sin AG) ─────────────────────────────────────
-    if contaminacion == "alta":
-        h1_def_hora, h1_def_zona, h1_def_sab = 22, "total", 2
+    # ── Escenarios fijos por IMECA (según especificación solicitada) ─────
+    if contaminacion == "buena":
+        h1_def_hora, h1_def_zona, h1_def_sab = 16, "total", min(1, total_sab)
+        h2_def_hora, h2_def_zona = 16, "total"
+        h2_def_sab = min(3, total_sab)
+        def_extras = 0
+        h0_days_per_week = 0
+        h00_days_per_week = 0
+        h2_total = False
+    elif contaminacion == "aceptable":
+        h1_def_hora, h1_def_zona, h1_def_sab = 22, "total", min(2, total_sab)
         h2_def_hora, h2_def_zona = 22, "total"
-        h2_def_sab   = total_sab
-        def_extras   = 1
-    elif contaminacion == "baja":
-        h1_def_hora, h1_def_zona, h1_def_sab = 16, "centro", 1
-        h2_def_hora, h2_def_zona = 16, "centro"
-        h2_def_sab   = min(3, total_sab)
-        def_extras   = 0
-    else:  # normal
-        h1_def_hora, h1_def_zona, h1_def_sab = 22, "total", 2
+        h2_def_sab = min(3, total_sab)
+        def_extras = 0
+        h0_days_per_week = 0
+        h00_days_per_week = 0
+        h2_total = False
+    elif contaminacion == "mala":
+        h1_def_hora, h1_def_zona, h1_def_sab = 22, "total", min(total_sab, max(3, total_sab - 1))
         h2_def_hora, h2_def_zona = 22, "total"
-        h2_def_sab   = total_sab
-        def_extras   = 0
+        h2_def_sab = total_sab
+        def_extras = 1
+        h0_days_per_week = 0
+        h00_days_per_week = 0
+        h2_total = False
+    elif contaminacion == "muy_mala":
+        h1_def_hora, h1_def_zona, h1_def_sab = 22, "total", total_sab
+        h2_def_hora, h2_def_zona = 22, "total"
+        h2_def_sab = total_sab
+        def_extras = 2
+        h0_days_per_week = 1
+        h00_days_per_week = 1
+        h2_total = False
+    else:  # extrema
+        h1_def_hora, h1_def_zona, h1_def_sab = 22, "total", total_sab
+        h2_def_hora, h2_def_zona = 22, "total"
+        h2_def_sab = total_sab
+        def_extras = 0
+        h0_days_per_week = 2
+        h00_days_per_week = 2
+        h2_total = True
 
     # ── Aplicar decisiones del AG (o usar defaults si no hay AG) ──────────
     if ag_decisions:
         # H1: decisión global (un horario/zona para todos los colores)
-        h1_horario = [5, int(ag_decisions.get("hora_fin_h1", h1_def_hora))]
-        zona_raw   = str(ag_decisions.get("zona_h1", h1_def_zona)).lower()
+        h1_horario = [5, h1_def_hora]
+        zona_raw   = str(h1_def_zona).lower()
         h1_zona    = "total" if "total" in zona_raw else "centro"
-        h1_sab = max(0, min(int(ag_decisions.get("sabados_h1", h1_def_sab)), 3))
+        h1_sab = max(0, min(int(ag_decisions.get("sabados_h1", h1_def_sab)), total_sab))
         h1_sab = min(h1_sab, total_sab)
 
         # H2 sábados y extras: valores globales
-        h2_sab = max(3, min(int(ag_decisions.get("sabados_h2", h2_def_sab)), total_sab))
+        h2_sab = max(0, min(int(ag_decisions.get("sabados_h2", h2_def_sab)), total_sab))
         extras_per_color = max(0, min(int(ag_decisions.get("dias_extra_h2", def_extras)), 2))
+        h0_weekday_count = max(0, int(ag_decisions.get("h0_weekday_count", 0)))
+        h0_saturday_count = max(0, int(ag_decisions.get("h0_saturday_count", 0)))
 
         # H2 horario/zona: POR COLOR (el AG decidió cuántos y cuáles son ligeros)
         h2_hora_col = ag_decisions.get("h2_hora_por_color", {})
@@ -331,13 +447,86 @@ def construir_reglas_mes(
         extras_per_color = def_extras
         h2_hora_col      = {}
         h2_zona_col      = {}
+        h0_weekday_count = 0
+        h0_saturday_count = 0
+
+    # Forzar reglas duras de los escenarios solicitados.
+    if contaminacion in ("buena", "aceptable"):
+        h1_sab = h1_def_sab
+        h2_sab = h2_def_sab
+        extras_per_color = 0
+        h0_weekday_count = 0
+        h0_saturday_count = 0
+    elif contaminacion == "mala":
+        mala_extra_max = 2 if (nivel_imeca >= 130.0 or total_sab >= 5) else 1
+        h1_sab = max(3, min(h1_sab, min(4, total_sab)))
+        h2_sab = total_sab
+        extras_per_color = max(1, min(extras_per_color, mala_extra_max))
+        h0_weekday_count = 0
+        h0_saturday_count = 0
+    elif contaminacion == "muy_mala":
+        h1_sab = total_sab
+        h2_sab = total_sab
+        extras_per_color = 2
+        h0_weekday_count = 1
+        h0_saturday_count = 0
+    elif contaminacion == "extrema":
+        h1_sab = total_sab
+        h2_sab = total_sab
+        extras_per_color = 0
+        h0_weekday_count = 2
+        h0_saturday_count = 0
+
+    h2_hora_col = {color: h2_def_hora for color in COLOR_ORDER}
+    h2_zona_col = {color: h2_def_zona for color in COLOR_ORDER}
+
+    h0_weekday_max, h0_saturday_max = h0_limits_from_imeca(nivel_imeca)
+    h0_weekday_count = min(h0_weekday_count, h0_weekday_max)
+    h0_saturday_count = min(h0_saturday_count, h0_saturday_max)
 
     # ── Construir reglas por color ─────────────────────────────────────────
+    h00_por_color: Dict[str, Any] = {}
     h1_por_color: Dict[str, Any] = {}
+    h0_por_color: Dict[str, Any] = {}
     h2_por_color: Dict[str, Any] = {}
 
     for color in COLOR_ORDER:
         dia_base = color_to_day_lower.get(color, dia_base_por_defecto(color))
+
+        # H00/H0: castigos localizados en una o dos semanas del mes, no en todas.
+        h00_dates = spread_weekday_dates(
+            year,
+            month,
+            WEEKDAY_INDEX[dia_base],
+            h00_days_per_week,
+            salt=color_month_salt(year, month, f"h00-{color}"),
+            phase_bias=COLOR_ORDER.index(color),
+        )
+        h0_dates = spread_weekday_dates(
+            year,
+            month,
+            WEEKDAY_INDEX[dia_base],
+            h0_weekday_count,
+            salt=color_month_salt(year, month, f"h0-{color}"),
+            phase_bias=COLOR_ORDER.index(color),
+        )
+        h0_saturday_dates = []
+
+        h00_por_color[color] = {
+            "dia_base": dia_base,
+            "horario": [5, 22],
+            "zona": "total",
+            "fechas_restriccion": h00_dates,
+            "sabados": [],
+        }
+
+        h0_por_color[color] = {
+            "dia_base": dia_base,
+            "horario": [5, 22],
+            "zona": "total",
+            "fechas_restriccion": h0_dates,
+            "sabados": [],
+        }
         h1_por_color[color] = {
             "dia_base": dia_base,
             "sabados": sat_list(total_sab, h1_sab),
@@ -357,10 +546,24 @@ def construir_reglas_mes(
             "zona": zona_c,
         }
 
+        if h2_total:
+            h2_item["restriccion_total"] = True
+            h2_item["sabados"] = sat_list(total_sab, total_sab)
+            h2_item["horario"] = [5, 22]
+            h2_item["zona"] = "total"
+            h2_item["fechas_restriccion"] = weekly_restriction_dates(year, month, WEEKDAY_INDEX[dia_base], 3)
+
         if extras_per_color > 0:
             weekday = WEEKDAY_INDEX[dia_base]
             extra_weekday = (weekday + 1) % 5
-            h2_item["extras"] = nth_weekday_dates(year, month, extra_weekday, extras_per_color)
+            h2_item["extras"] = spread_weekday_dates(
+                year,
+                month,
+                extra_weekday,
+                extras_per_color,
+                salt=color_month_salt(year, month, color),
+                phase_bias=COLOR_ORDER.index(color),
+            )
 
         h2_por_color[color] = h2_item
 
@@ -373,7 +576,14 @@ def construir_reglas_mes(
             if len(extras) < extras_per_color:
                 weekday = WEEKDAY_INDEX[color_to_day_lower.get(color, dia_base_por_defecto(color))]
                 weekday = (weekday + 1) % 5
-                filler = nth_weekday_dates(year, month, weekday, extras_per_color)
+                filler = spread_weekday_dates(
+                    year,
+                    month,
+                    weekday,
+                    extras_per_color,
+                    salt=color_month_salt(year, month, color),
+                    phase_bias=COLOR_ORDER.index(color),
+                )
                 extras = (extras + filler)[:extras_per_color]
 
             cfg["extras"] = extras[:extras_per_color]
@@ -388,7 +598,7 @@ def construir_reglas_mes(
 
             while len(filtradas) < extras_per_color:
                 wd_idx = (WEEKDAY_INDEX[dia_base] + 1) % 5
-                candidatos = nth_weekday_dates(year, month, wd_idx, extras_per_color + 2)
+                candidatos = all_weekday_dates(year, month, wd_idx)
                 for c in candidatos:
                     if c not in filtradas:
                         filtradas.append(c)
@@ -401,8 +611,8 @@ def construir_reglas_mes(
         "mes": month,
         "year": year,
         "contaminacion": contaminacion,
-        "h00": "libre",
-        "h0": "libre",
+        "h00": {"por_color": h00_por_color},
+        "h0": {"por_color": h0_por_color},
         "h1": {"por_color": h1_por_color},
         "h2": {"por_color": h2_por_color},
     }
@@ -415,7 +625,11 @@ def generar_individuo() -> List[float]:
     return [random.random() for _ in range(GENES)]
 
 
-def decodificar_individuo(individuo: List[float], total_sabados_mes: int = 4) -> Dict[str, Any]:
+def decodificar_individuo(
+    individuo: List[float],
+    total_sabados_mes: int = 4,
+    nivel_imeca: float = 150.0,
+) -> Dict[str, Any]:
     """
     Decodifica el cromosoma del AG en decisiones concretas de restricción.
 
@@ -450,9 +664,9 @@ def decodificar_individuo(individuo: List[float], total_sabados_mes: int = 4) ->
     # Mismo diseño de conteo que gene 5.
     n_cen_h2 = min(5, int(individuo[7] * 6))   # [0,1) → 0–5
 
-    # ── Gene 8: sábados H1  →  0, 1, 2 ó 3 ──────────────────────────────
+    # ── Gene 8: sábados H1  →  0 a total_sabados_mes ──────────────────────────────
     val_s1 = individuo[8]
-    sabados_h1 = min(3, int(val_s1 * 4))
+    sabados_h1 = min(total_sabados_mes, int(val_s1 * (total_sabados_mes + 1)))
     sabados_h1 = min(sabados_h1, total_sabados_mes)
 
     # ── Gene 9: sábados H2  →  3 … total_sab ─────────────────────────────
@@ -464,6 +678,11 @@ def decodificar_individuo(individuo: List[float], total_sabados_mes: int = 4) ->
     # ── Gene 10: extras H2  →  0, 1 ó 2 fechas adicionales ─────────────
     val_ex = individuo[10] if len(individuo) > 10 else 0.0
     dias_extra_h2 = min(2, int(val_ex * 3))
+
+    # ── H0: decisiones del AG dentro de topes suaves por IMECA ───────────
+    h0_weekday_max, h0_saturday_max = h0_limits_from_imeca(nivel_imeca)
+    h0_weekday_count = min(h0_weekday_max, int(individuo[0] * (h0_weekday_max + 1)))
+    h0_saturday_count = min(h0_saturday_max, int(individuo[1] * (h0_saturday_max + 1)))
 
     # ── Genes 11-15: color → día de la semana ─────────────────────────────
     propuesta_color_dia: Dict[str, str] = {}
@@ -515,6 +734,10 @@ def decodificar_individuo(individuo: List[float], total_sabados_mes: int = 4) ->
             "sabados_h1": sabados_h1,
             "sabados_h2": sabados_h2,
             "dias_extra_h2": dias_extra_h2,
+            "h0_weekday_count": h0_weekday_count,
+            "h0_saturday_count": h0_saturday_count,
+            "h0_weekday_max": h0_weekday_max,
+            "h0_saturday_max": h0_saturday_max,
             # H2 per-color (para construir_reglas_mes)
             "h2_hora_por_color": h2_hora_por_color,
             "h2_zona_por_color": h2_zona_por_color,
@@ -533,6 +756,7 @@ def funcion_objetivo(
     factor_mensual: float,
     factor_sabado: float = 1.0,
     total_sabados: int = 4,
+    nivel_imeca: float = 150.0,
 ) -> float:
     """
     Evalúa un cromosoma con el contexto real del mes.
@@ -548,12 +772,16 @@ def funcion_objetivo(
       normal(1.0) → H1 1-2 sábs, H2 todos los sábs, 0-1 extras
       alta  (1.8) → H1 2-3 sábs, H2 todos los sábs, 1-2 extras
     """
-    sol  = decodificar_individuo(individuo, total_sabados)
+    sol  = decodificar_individuo(individuo, total_sabados, nivel_imeca)
     d_ag = sol["decisiones_ag"]
 
     sab_h1 = d_ag["sabados_h1"]     # 0 – 3
     sab_h2 = d_ag["sabados_h2"]     # 3 – total_sab
     extras = d_ag["dias_extra_h2"]  # 0 – 2
+    h0_weekdays = d_ag.get("h0_weekday_count", 0)
+    h0_sats = d_ag.get("h0_saturday_count", 0)
+    h0_weekday_max = max(1, d_ag.get("h0_weekday_max", 0))
+    h0_saturday_max = max(1, d_ag.get("h0_saturday_max", 0))
 
     # ── Cobertura H1 (decisión global para todos los colores) ────────────
     hora_h1   = int(d_ag.get("hora_fin_h1", 22))
@@ -571,10 +799,14 @@ def funcion_objetivo(
     # ── Restricción normalizada [0, 1] ────────────────────────────────────
     h2_extra_sats = sab_h2 - 3
     h2_max_extra  = max(1, total_sabados - 3)
+    h1_max_sats = max(1, total_sabados)
 
-    W_H1, W_H2, W_EX = 0.30, 0.35, 0.35
+    # H0 weights más bajos para que suba más lentamente que H1/H2
+    W_H0_WD, W_H0_SAT, W_H1, W_H2, W_EX = 0.07, 0.04, 0.28, 0.32, 0.29
     nivel_restriccion = (
-          (sab_h1        / 3.0)            * W_H1 * cov_h1
+          (h0_weekdays   / h0_weekday_max)   * W_H0_WD
+        + (h0_sats       / h0_saturday_max)  * W_H0_SAT
+        + (sab_h1        / h1_max_sats)      * W_H1 * cov_h1
         + (h2_extra_sats / h2_max_extra)   * W_H2 * cov_h2
         + (extras        / 2.0)            * W_EX * cov_h2
     )
@@ -582,9 +814,11 @@ def funcion_objetivo(
     # ── Beneficio ambiental ───────────────────────────────────────────────
     beneficio = nivel_restriccion * factor_mensual * 2.5
 
-    # ── Costo económico (cuadrático) ──────────────────────────────────────
+    # ── Costo económico (cuadrático): H0 con penalty más agresivo ──────
     costo = (
-          (sab_h1        ** 1.5) * 0.08 * cov_h1
+          (h0_weekdays   ** 1.3) * 0.14
+        + (h0_sats       ** 1.3) * 0.18
+        + (sab_h1        ** 1.5) * 0.08 * cov_h1
         + (h2_extra_sats ** 1.5) * 0.40 * cov_h2
         + (extras        ** 1.5) * 0.35 * cov_h2
     )
@@ -631,8 +865,9 @@ def aptitud(
     factor_mensual: float,
     factor_sabado: float = 1.0,
     total_sabados: int = 4,
+    nivel_imeca: float = 150.0,
 ) -> float:
-    return funcion_objetivo(individuo, factor_mensual, factor_sabado, total_sabados)
+    return funcion_objetivo(individuo, factor_mensual, factor_sabado, total_sabados, nivel_imeca)
 
 
 # ============================================================================
@@ -682,10 +917,11 @@ def poda(
     factor_sabado: float,
     total_sabados: int,
     tam_objetivo: int,
+    nivel_imeca: float,
 ) -> List[List[float]]:
     ranking = sorted(
         poblacion,
-        key=lambda ind: aptitud(ind, factor_mensual, factor_sabado, total_sabados),
+        key=lambda ind: aptitud(ind, factor_mensual, factor_sabado, total_sabados, nivel_imeca),
         reverse=True,
     )
     return [ind[:] for ind in ranking[:tam_objetivo]]
@@ -698,6 +934,7 @@ def ejecutar_algoritmo_genetico(
     factor_mensual: float,
     factor_sabado: float = 1.0,
     total_sabados: int = 4,
+    nivel_imeca: float = 150.0,
     pop_size: int = DEFAULT_POP_SIZE,
     generaciones: int = DEFAULT_GENERATIONS,
     prob_cruza: float = 0.85,
@@ -716,7 +953,7 @@ def ejecutar_algoritmo_genetico(
 
     for _ in range(generaciones):
         aptitudes_lista = [
-            aptitud(ind, factor_mensual, factor_sabado, total_sabados)
+            aptitud(ind, factor_mensual, factor_sabado, total_sabados, nivel_imeca)
             for ind in poblacion
         ]
         ranking = sorted(zip(poblacion, aptitudes_lista), key=lambda x: x[1], reverse=True)
@@ -738,7 +975,14 @@ def ejecutar_algoritmo_genetico(
             if len(nueva_poblacion) < pop_size:
                 nueva_poblacion.append(mutar(h2, prob_mutacion))
 
-        poblacion = poda(nueva_poblacion, factor_mensual, factor_sabado, total_sabados, pop_size)
+        poblacion = poda(
+            nueva_poblacion,
+            factor_mensual,
+            factor_sabado,
+            total_sabados,
+            pop_size,
+            nivel_imeca,
+        )
 
     return {
         "mejor_fitness": float(best_fit),
@@ -751,6 +995,7 @@ def evolucionar(
     factor_mensual: float,
     params: Optional[Dict[str, Any]] = None,
     total_sabados: int = 4,
+    nivel_imeca: float = 150.0,
 ) -> Dict[str, Any]:
     """Wrapper de compatibilidad con el nombre anterior."""
     cfg = params or {}
@@ -760,6 +1005,7 @@ def evolucionar(
         factor_mensual=factor_mensual,
         factor_sabado=factor_sabado,
         total_sabados=total_sabados,
+        nivel_imeca=nivel_imeca,
         pop_size=int(cfg.get("pop_size", DEFAULT_POP_SIZE)),
         generaciones=int(cfg.get("generaciones", DEFAULT_GENERATIONS)),
         prob_cruza=0.85,
@@ -815,6 +1061,7 @@ def generar_json_final(params: Optional[Dict[str, Any]] = None) -> Dict[str, Any
             factor_mensual=factor_i,
             factor_sabado=factor_sabado,
             total_sabados=total_sab_i,
+            nivel_imeca=nivel_imeca,
             pop_size=pop_size,
             generaciones=generaciones,
             prob_cruza=0.85,
@@ -826,7 +1073,7 @@ def generar_json_final(params: Optional[Dict[str, Any]] = None) -> Dict[str, Any
         mejor_ind = ag_result["mejor_individuo"]
 
         # ── Decodificar decisiones evolucionadas ─────────────────────────
-        decoded = decodificar_individuo(mejor_ind, total_sab_i)
+        decoded = decodificar_individuo(mejor_ind, total_sab_i, nivel_imeca)
         color_to_day = decoded["color_dia_final"]
         ag_decisions = decoded["decisiones_ag"]
 
@@ -849,7 +1096,7 @@ def generar_json_final(params: Optional[Dict[str, Any]] = None) -> Dict[str, Any
 
         # ── Construir reglas del mes usando las decisiones del AG ─────────
         mes_data = construir_reglas_mes(
-            year_i, month_i, contaminacion_i, color_to_day, ag_decisions
+            year_i, month_i, contaminacion_i, color_to_day, ag_decisions, nivel_imeca
         )
         meses_out.append(mes_data)
 

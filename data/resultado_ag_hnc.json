@@ -6,9 +6,9 @@
         "mutacion": 0.05,
         "elitismo": 2,
         "peso_equidad": 1,
-        "peso_ambiental_critico": 3.05,
+        "peso_ambiental_critico": 2.35,
         "peso_economico": 1.55,
-        "nivel_imeca": 255,
+        "nivel_imeca": 175,
         "start_month": "2026-04",
         "meses": 6
     },
@@ -16,23 +16,150 @@
         "factor_sabado": 0.479735,
         "usa_entorno_etl": true
     },
-    "mejor_fitness": 0.959022,
+    "mejor_fitness": 1.0,
     "mejor_solucion": {
         "meses": [
             {
                 "mes": 4,
                 "year": 2026,
-                "contaminacion": "alta",
-                "h00": "libre",
-                "h0": "libre",
+                "contaminacion": "muy_mala",
+                "h00": {
+                    "por_color": {
+                        "Verde": {
+                            "dia_base": "martes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-04-14"
+                            ],
+                            "sabados": []
+                        },
+                        "Amarillo": {
+                            "dia_base": "viernes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-04-17"
+                            ],
+                            "sabados": []
+                        },
+                        "Rosa": {
+                            "dia_base": "miercoles",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-04-15"
+                            ],
+                            "sabados": []
+                        },
+                        "Rojo": {
+                            "dia_base": "lunes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-04-27"
+                            ],
+                            "sabados": []
+                        },
+                        "Azul": {
+                            "dia_base": "jueves",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-04-30"
+                            ],
+                            "sabados": []
+                        }
+                    }
+                },
+                "h0": {
+                    "por_color": {
+                        "Verde": {
+                            "dia_base": "martes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-04-28"
+                            ],
+                            "sabados": []
+                        },
+                        "Amarillo": {
+                            "dia_base": "viernes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-04-03"
+                            ],
+                            "sabados": []
+                        },
+                        "Rosa": {
+                            "dia_base": "miercoles",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-04-29"
+                            ],
+                            "sabados": []
+                        },
+                        "Rojo": {
+                            "dia_base": "lunes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-04-20"
+                            ],
+                            "sabados": []
+                        },
+                        "Azul": {
+                            "dia_base": "jueves",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-04-16"
+                            ],
+                            "sabados": []
+                        }
+                    }
+                },
                 "h1": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "viernes",
+                            "dia_base": "martes",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -41,11 +168,12 @@
                             "zona": "total"
                         },
                         "Amarillo": {
-                            "dia_base": "martes",
+                            "dia_base": "viernes",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -54,11 +182,12 @@
                             "zona": "total"
                         },
                         "Rosa": {
-                            "dia_base": "jueves",
+                            "dia_base": "miercoles",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -67,11 +196,12 @@
                             "zona": "total"
                         },
                         "Rojo": {
-                            "dia_base": "miercoles",
+                            "dia_base": "lunes",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -80,11 +210,12 @@
                             "zona": "total"
                         },
                         "Azul": {
-                            "dia_base": "lunes",
+                            "dia_base": "jueves",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -97,24 +228,6 @@
                 "h2": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "viernes",
-                            "sabados": [
-                                1,
-                                2,
-                                3,
-                                4
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total",
-                            "extras": [
-                                "2026-04-06",
-                                "2026-04-13"
-                            ]
-                        },
-                        "Amarillo": {
                             "dia_base": "martes",
                             "sabados": [
                                 1,
@@ -128,12 +241,12 @@
                             ],
                             "zona": "total",
                             "extras": [
-                                "2026-04-01",
-                                "2026-04-08"
+                                "2026-04-15",
+                                "2026-04-22"
                             ]
                         },
-                        "Rosa": {
-                            "dia_base": "jueves",
+                        "Amarillo": {
+                            "dia_base": "viernes",
                             "sabados": [
                                 1,
                                 2,
@@ -146,11 +259,11 @@
                             ],
                             "zona": "total",
                             "extras": [
-                                "2026-04-03",
-                                "2026-04-10"
+                                "2026-04-13",
+                                "2026-04-20"
                             ]
                         },
-                        "Rojo": {
+                        "Rosa": {
                             "dia_base": "miercoles",
                             "sabados": [
                                 1,
@@ -168,7 +281,7 @@
                                 "2026-04-09"
                             ]
                         },
-                        "Azul": {
+                        "Rojo": {
                             "dia_base": "lunes",
                             "sabados": [
                                 1,
@@ -182,8 +295,26 @@
                             ],
                             "zona": "total",
                             "extras": [
-                                "2026-04-07",
-                                "2026-04-14"
+                                "2026-04-14",
+                                "2026-04-21"
+                            ]
+                        },
+                        "Azul": {
+                            "dia_base": "jueves",
+                            "sabados": [
+                                1,
+                                2,
+                                3,
+                                4
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "extras": [
+                                "2026-04-10",
+                                "2026-04-17"
                             ]
                         }
                     }
@@ -192,17 +323,145 @@
             {
                 "mes": 5,
                 "year": 2026,
-                "contaminacion": "alta",
-                "h00": "libre",
-                "h0": "libre",
+                "contaminacion": "muy_mala",
+                "h00": {
+                    "por_color": {
+                        "Verde": {
+                            "dia_base": "miercoles",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-05-20"
+                            ],
+                            "sabados": []
+                        },
+                        "Amarillo": {
+                            "dia_base": "martes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-05-12"
+                            ],
+                            "sabados": []
+                        },
+                        "Rosa": {
+                            "dia_base": "viernes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-05-01"
+                            ],
+                            "sabados": []
+                        },
+                        "Rojo": {
+                            "dia_base": "lunes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-05-11"
+                            ],
+                            "sabados": []
+                        },
+                        "Azul": {
+                            "dia_base": "jueves",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-05-28"
+                            ],
+                            "sabados": []
+                        }
+                    }
+                },
+                "h0": {
+                    "por_color": {
+                        "Verde": {
+                            "dia_base": "miercoles",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-05-20"
+                            ],
+                            "sabados": []
+                        },
+                        "Amarillo": {
+                            "dia_base": "martes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-05-26"
+                            ],
+                            "sabados": []
+                        },
+                        "Rosa": {
+                            "dia_base": "viernes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-05-22"
+                            ],
+                            "sabados": []
+                        },
+                        "Rojo": {
+                            "dia_base": "lunes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-05-04"
+                            ],
+                            "sabados": []
+                        },
+                        "Azul": {
+                            "dia_base": "jueves",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-05-07"
+                            ],
+                            "sabados": []
+                        }
+                    }
+                },
                 "h1": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "lunes",
+                            "dia_base": "miercoles",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4,
+                                5
                             ],
                             "horario": [
                                 5,
@@ -215,7 +474,9 @@
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4,
+                                5
                             ],
                             "horario": [
                                 5,
@@ -224,11 +485,13 @@
                             "zona": "total"
                         },
                         "Rosa": {
-                            "dia_base": "jueves",
+                            "dia_base": "viernes",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4,
+                                5
                             ],
                             "horario": [
                                 5,
@@ -237,11 +500,13 @@
                             "zona": "total"
                         },
                         "Rojo": {
-                            "dia_base": "miercoles",
+                            "dia_base": "lunes",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4,
+                                5
                             ],
                             "horario": [
                                 5,
@@ -250,11 +515,13 @@
                             "zona": "total"
                         },
                         "Azul": {
-                            "dia_base": "viernes",
+                            "dia_base": "jueves",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4,
+                                5
                             ],
                             "horario": [
                                 5,
@@ -267,7 +534,7 @@
                 "h2": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "lunes",
+                            "dia_base": "miercoles",
                             "sabados": [
                                 1,
                                 2,
@@ -281,8 +548,8 @@
                             ],
                             "zona": "total",
                             "extras": [
-                                "2026-05-05",
-                                "2026-05-12"
+                                "2026-05-14",
+                                "2026-05-21"
                             ]
                         },
                         "Amarillo": {
@@ -305,44 +572,6 @@
                             ]
                         },
                         "Rosa": {
-                            "dia_base": "jueves",
-                            "sabados": [
-                                1,
-                                2,
-                                3,
-                                4,
-                                5
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total",
-                            "extras": [
-                                "2026-05-01",
-                                "2026-05-08"
-                            ]
-                        },
-                        "Rojo": {
-                            "dia_base": "miercoles",
-                            "sabados": [
-                                1,
-                                2,
-                                3,
-                                4,
-                                5
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total",
-                            "extras": [
-                                "2026-05-07",
-                                "2026-05-14"
-                            ]
-                        },
-                        "Azul": {
                             "dia_base": "viernes",
                             "sabados": [
                                 1,
@@ -357,8 +586,46 @@
                             ],
                             "zona": "total",
                             "extras": [
-                                "2026-05-04",
-                                "2026-05-11"
+                                "2026-05-11",
+                                "2026-05-18"
+                            ]
+                        },
+                        "Rojo": {
+                            "dia_base": "lunes",
+                            "sabados": [
+                                1,
+                                2,
+                                3,
+                                4,
+                                5
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "extras": [
+                                "2026-05-12",
+                                "2026-05-19"
+                            ]
+                        },
+                        "Azul": {
+                            "dia_base": "jueves",
+                            "sabados": [
+                                1,
+                                2,
+                                3,
+                                4,
+                                5
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "extras": [
+                                "2026-05-15",
+                                "2026-05-22"
                             ]
                         }
                     }
@@ -367,17 +634,144 @@
             {
                 "mes": 6,
                 "year": 2026,
-                "contaminacion": "alta",
-                "h00": "libre",
-                "h0": "libre",
+                "contaminacion": "muy_mala",
+                "h00": {
+                    "por_color": {
+                        "Verde": {
+                            "dia_base": "viernes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-06-05"
+                            ],
+                            "sabados": []
+                        },
+                        "Amarillo": {
+                            "dia_base": "martes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-06-02"
+                            ],
+                            "sabados": []
+                        },
+                        "Rosa": {
+                            "dia_base": "jueves",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-06-18"
+                            ],
+                            "sabados": []
+                        },
+                        "Rojo": {
+                            "dia_base": "miercoles",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-06-10"
+                            ],
+                            "sabados": []
+                        },
+                        "Azul": {
+                            "dia_base": "lunes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-06-15"
+                            ],
+                            "sabados": []
+                        }
+                    }
+                },
+                "h0": {
+                    "por_color": {
+                        "Verde": {
+                            "dia_base": "viernes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-06-19"
+                            ],
+                            "sabados": []
+                        },
+                        "Amarillo": {
+                            "dia_base": "martes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-06-16"
+                            ],
+                            "sabados": []
+                        },
+                        "Rosa": {
+                            "dia_base": "jueves",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-06-04"
+                            ],
+                            "sabados": []
+                        },
+                        "Rojo": {
+                            "dia_base": "miercoles",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-06-03"
+                            ],
+                            "sabados": []
+                        },
+                        "Azul": {
+                            "dia_base": "lunes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-06-08"
+                            ],
+                            "sabados": []
+                        }
+                    }
+                },
                 "h1": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "miercoles",
+                            "dia_base": "viernes",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -390,7 +784,8 @@
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -399,11 +794,12 @@
                             "zona": "total"
                         },
                         "Rosa": {
-                            "dia_base": "lunes",
+                            "dia_base": "jueves",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -412,11 +808,12 @@
                             "zona": "total"
                         },
                         "Rojo": {
-                            "dia_base": "viernes",
+                            "dia_base": "miercoles",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -425,11 +822,12 @@
                             "zona": "total"
                         },
                         "Azul": {
-                            "dia_base": "jueves",
+                            "dia_base": "lunes",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -442,60 +840,6 @@
                 "h2": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "miercoles",
-                            "sabados": [
-                                1,
-                                2,
-                                3,
-                                4
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total",
-                            "extras": [
-                                "2026-06-04",
-                                "2026-06-11"
-                            ]
-                        },
-                        "Amarillo": {
-                            "dia_base": "martes",
-                            "sabados": [
-                                1,
-                                2,
-                                3,
-                                4
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total",
-                            "extras": [
-                                "2026-06-03",
-                                "2026-06-10"
-                            ]
-                        },
-                        "Rosa": {
-                            "dia_base": "lunes",
-                            "sabados": [
-                                1,
-                                2,
-                                3,
-                                4
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total",
-                            "extras": [
-                                "2026-06-02",
-                                "2026-06-09"
-                            ]
-                        },
-                        "Rojo": {
                             "dia_base": "viernes",
                             "sabados": [
                                 1,
@@ -513,7 +857,25 @@
                                 "2026-06-08"
                             ]
                         },
-                        "Azul": {
+                        "Amarillo": {
+                            "dia_base": "martes",
+                            "sabados": [
+                                1,
+                                2,
+                                3,
+                                4
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "extras": [
+                                "2026-06-10",
+                                "2026-06-17"
+                            ]
+                        },
+                        "Rosa": {
                             "dia_base": "jueves",
                             "sabados": [
                                 1,
@@ -527,8 +889,44 @@
                             ],
                             "zona": "total",
                             "extras": [
-                                "2026-06-05",
-                                "2026-06-12"
+                                "2026-06-19",
+                                "2026-06-26"
+                            ]
+                        },
+                        "Rojo": {
+                            "dia_base": "miercoles",
+                            "sabados": [
+                                1,
+                                2,
+                                3,
+                                4
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "extras": [
+                                "2026-06-11",
+                                "2026-06-18"
+                            ]
+                        },
+                        "Azul": {
+                            "dia_base": "lunes",
+                            "sabados": [
+                                1,
+                                2,
+                                3,
+                                4
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "extras": [
+                                "2026-06-09",
+                                "2026-06-16"
                             ]
                         }
                     }
@@ -537,17 +935,144 @@
             {
                 "mes": 7,
                 "year": 2026,
-                "contaminacion": "alta",
-                "h00": "libre",
-                "h0": "libre",
+                "contaminacion": "muy_mala",
+                "h00": {
+                    "por_color": {
+                        "Verde": {
+                            "dia_base": "martes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-07-14"
+                            ],
+                            "sabados": []
+                        },
+                        "Amarillo": {
+                            "dia_base": "lunes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-07-06"
+                            ],
+                            "sabados": []
+                        },
+                        "Rosa": {
+                            "dia_base": "miercoles",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-07-01"
+                            ],
+                            "sabados": []
+                        },
+                        "Rojo": {
+                            "dia_base": "jueves",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-07-30"
+                            ],
+                            "sabados": []
+                        },
+                        "Azul": {
+                            "dia_base": "viernes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-07-10"
+                            ],
+                            "sabados": []
+                        }
+                    }
+                },
+                "h0": {
+                    "por_color": {
+                        "Verde": {
+                            "dia_base": "martes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-07-14"
+                            ],
+                            "sabados": []
+                        },
+                        "Amarillo": {
+                            "dia_base": "lunes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-07-20"
+                            ],
+                            "sabados": []
+                        },
+                        "Rosa": {
+                            "dia_base": "miercoles",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-07-15"
+                            ],
+                            "sabados": []
+                        },
+                        "Rojo": {
+                            "dia_base": "jueves",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-07-30"
+                            ],
+                            "sabados": []
+                        },
+                        "Azul": {
+                            "dia_base": "viernes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-07-03"
+                            ],
+                            "sabados": []
+                        }
+                    }
+                },
                 "h1": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "jueves",
+                            "dia_base": "martes",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -556,11 +1081,12 @@
                             "zona": "total"
                         },
                         "Amarillo": {
-                            "dia_base": "miercoles",
+                            "dia_base": "lunes",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -569,11 +1095,12 @@
                             "zona": "total"
                         },
                         "Rosa": {
-                            "dia_base": "viernes",
+                            "dia_base": "miercoles",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -582,11 +1109,12 @@
                             "zona": "total"
                         },
                         "Rojo": {
-                            "dia_base": "lunes",
+                            "dia_base": "jueves",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -595,11 +1123,12 @@
                             "zona": "total"
                         },
                         "Azul": {
-                            "dia_base": "martes",
+                            "dia_base": "viernes",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -612,7 +1141,7 @@
                 "h2": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "jueves",
+                            "dia_base": "martes",
                             "sabados": [
                                 1,
                                 2,
@@ -625,47 +1154,11 @@
                             ],
                             "zona": "total",
                             "extras": [
-                                "2026-07-03",
-                                "2026-07-10"
+                                "2026-07-22",
+                                "2026-07-29"
                             ]
                         },
                         "Amarillo": {
-                            "dia_base": "miercoles",
-                            "sabados": [
-                                1,
-                                2,
-                                3,
-                                4
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total",
-                            "extras": [
-                                "2026-07-02",
-                                "2026-07-09"
-                            ]
-                        },
-                        "Rosa": {
-                            "dia_base": "viernes",
-                            "sabados": [
-                                1,
-                                2,
-                                3,
-                                4
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total",
-                            "extras": [
-                                "2026-07-06",
-                                "2026-07-13"
-                            ]
-                        },
-                        "Rojo": {
                             "dia_base": "lunes",
                             "sabados": [
                                 1,
@@ -683,8 +1176,8 @@
                                 "2026-07-14"
                             ]
                         },
-                        "Azul": {
-                            "dia_base": "martes",
+                        "Rosa": {
+                            "dia_base": "miercoles",
                             "sabados": [
                                 1,
                                 2,
@@ -697,8 +1190,44 @@
                             ],
                             "zona": "total",
                             "extras": [
-                                "2026-07-01",
-                                "2026-07-08"
+                                "2026-07-09",
+                                "2026-07-16"
+                            ]
+                        },
+                        "Rojo": {
+                            "dia_base": "jueves",
+                            "sabados": [
+                                1,
+                                2,
+                                3,
+                                4
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "extras": [
+                                "2026-07-03",
+                                "2026-07-10"
+                            ]
+                        },
+                        "Azul": {
+                            "dia_base": "viernes",
+                            "sabados": [
+                                1,
+                                2,
+                                3,
+                                4
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "extras": [
+                                "2026-07-20",
+                                "2026-07-27"
                             ]
                         }
                     }
@@ -707,17 +1236,145 @@
             {
                 "mes": 8,
                 "year": 2026,
-                "contaminacion": "alta",
-                "h00": "libre",
-                "h0": "libre",
+                "contaminacion": "muy_mala",
+                "h00": {
+                    "por_color": {
+                        "Verde": {
+                            "dia_base": "lunes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-08-24"
+                            ],
+                            "sabados": []
+                        },
+                        "Amarillo": {
+                            "dia_base": "viernes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-08-21"
+                            ],
+                            "sabados": []
+                        },
+                        "Rosa": {
+                            "dia_base": "miercoles",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-08-12"
+                            ],
+                            "sabados": []
+                        },
+                        "Rojo": {
+                            "dia_base": "martes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-08-04"
+                            ],
+                            "sabados": []
+                        },
+                        "Azul": {
+                            "dia_base": "jueves",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-08-13"
+                            ],
+                            "sabados": []
+                        }
+                    }
+                },
+                "h0": {
+                    "por_color": {
+                        "Verde": {
+                            "dia_base": "lunes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-08-17"
+                            ],
+                            "sabados": []
+                        },
+                        "Amarillo": {
+                            "dia_base": "viernes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-08-07"
+                            ],
+                            "sabados": []
+                        },
+                        "Rosa": {
+                            "dia_base": "miercoles",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-08-26"
+                            ],
+                            "sabados": []
+                        },
+                        "Rojo": {
+                            "dia_base": "martes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-08-25"
+                            ],
+                            "sabados": []
+                        },
+                        "Azul": {
+                            "dia_base": "jueves",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-08-20"
+                            ],
+                            "sabados": []
+                        }
+                    }
+                },
                 "h1": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "miercoles",
+                            "dia_base": "lunes",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4,
+                                5
                             ],
                             "horario": [
                                 5,
@@ -726,11 +1383,13 @@
                             "zona": "total"
                         },
                         "Amarillo": {
-                            "dia_base": "lunes",
+                            "dia_base": "viernes",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4,
+                                5
                             ],
                             "horario": [
                                 5,
@@ -739,11 +1398,13 @@
                             "zona": "total"
                         },
                         "Rosa": {
-                            "dia_base": "martes",
+                            "dia_base": "miercoles",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4,
+                                5
                             ],
                             "horario": [
                                 5,
@@ -752,11 +1413,13 @@
                             "zona": "total"
                         },
                         "Rojo": {
-                            "dia_base": "viernes",
+                            "dia_base": "martes",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4,
+                                5
                             ],
                             "horario": [
                                 5,
@@ -769,7 +1432,9 @@
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4,
+                                5
                             ],
                             "horario": [
                                 5,
@@ -782,25 +1447,6 @@
                 "h2": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "miercoles",
-                            "sabados": [
-                                1,
-                                2,
-                                3,
-                                4,
-                                5
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total",
-                            "extras": [
-                                "2026-08-06",
-                                "2026-08-13"
-                            ]
-                        },
-                        "Amarillo": {
                             "dia_base": "lunes",
                             "sabados": [
                                 1,
@@ -815,30 +1461,11 @@
                             ],
                             "zona": "total",
                             "extras": [
-                                "2026-08-04",
-                                "2026-08-11"
+                                "2026-08-18",
+                                "2026-08-25"
                             ]
                         },
-                        "Rosa": {
-                            "dia_base": "martes",
-                            "sabados": [
-                                1,
-                                2,
-                                3,
-                                4,
-                                5
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total",
-                            "extras": [
-                                "2026-08-05",
-                                "2026-08-12"
-                            ]
-                        },
-                        "Rojo": {
+                        "Amarillo": {
                             "dia_base": "viernes",
                             "sabados": [
                                 1,
@@ -853,8 +1480,46 @@
                             ],
                             "zona": "total",
                             "extras": [
-                                "2026-08-03",
-                                "2026-08-10"
+                                "2026-08-17",
+                                "2026-08-24"
+                            ]
+                        },
+                        "Rosa": {
+                            "dia_base": "miercoles",
+                            "sabados": [
+                                1,
+                                2,
+                                3,
+                                4,
+                                5
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "extras": [
+                                "2026-08-20",
+                                "2026-08-27"
+                            ]
+                        },
+                        "Rojo": {
+                            "dia_base": "martes",
+                            "sabados": [
+                                1,
+                                2,
+                                3,
+                                4,
+                                5
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "extras": [
+                                "2026-08-19",
+                                "2026-08-26"
                             ]
                         },
                         "Azul": {
@@ -872,8 +1537,8 @@
                             ],
                             "zona": "total",
                             "extras": [
-                                "2026-08-07",
-                                "2026-08-14"
+                                "2026-08-21",
+                                "2026-08-28"
                             ]
                         }
                     }
@@ -882,9 +1547,135 @@
             {
                 "mes": 9,
                 "year": 2026,
-                "contaminacion": "alta",
-                "h00": "libre",
-                "h0": "libre",
+                "contaminacion": "muy_mala",
+                "h00": {
+                    "por_color": {
+                        "Verde": {
+                            "dia_base": "jueves",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-09-24"
+                            ],
+                            "sabados": []
+                        },
+                        "Amarillo": {
+                            "dia_base": "miercoles",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-09-30"
+                            ],
+                            "sabados": []
+                        },
+                        "Rosa": {
+                            "dia_base": "lunes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-09-14"
+                            ],
+                            "sabados": []
+                        },
+                        "Rojo": {
+                            "dia_base": "martes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-09-29"
+                            ],
+                            "sabados": []
+                        },
+                        "Azul": {
+                            "dia_base": "viernes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-09-04"
+                            ],
+                            "sabados": []
+                        }
+                    }
+                },
+                "h0": {
+                    "por_color": {
+                        "Verde": {
+                            "dia_base": "jueves",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-09-24"
+                            ],
+                            "sabados": []
+                        },
+                        "Amarillo": {
+                            "dia_base": "miercoles",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-09-30"
+                            ],
+                            "sabados": []
+                        },
+                        "Rosa": {
+                            "dia_base": "lunes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-09-28"
+                            ],
+                            "sabados": []
+                        },
+                        "Rojo": {
+                            "dia_base": "martes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-09-29"
+                            ],
+                            "sabados": []
+                        },
+                        "Azul": {
+                            "dia_base": "viernes",
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "fechas_restriccion": [
+                                "2026-09-11"
+                            ],
+                            "sabados": []
+                        }
+                    }
+                },
                 "h1": {
                     "por_color": {
                         "Verde": {
@@ -892,7 +1683,8 @@
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -901,11 +1693,12 @@
                             "zona": "total"
                         },
                         "Amarillo": {
-                            "dia_base": "viernes",
+                            "dia_base": "miercoles",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -918,7 +1711,8 @@
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -931,7 +1725,8 @@
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -940,11 +1735,12 @@
                             "zona": "total"
                         },
                         "Azul": {
-                            "dia_base": "miercoles",
+                            "dia_base": "viernes",
                             "sabados": [
                                 1,
                                 2,
-                                3
+                                3,
+                                4
                             ],
                             "horario": [
                                 5,
@@ -970,11 +1766,65 @@
                             ],
                             "zona": "total",
                             "extras": [
-                                "2026-09-04",
-                                "2026-09-11"
+                                "2026-09-18",
+                                "2026-09-25"
                             ]
                         },
                         "Amarillo": {
+                            "dia_base": "miercoles",
+                            "sabados": [
+                                1,
+                                2,
+                                3,
+                                4
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "extras": [
+                                "2026-09-10",
+                                "2026-09-17"
+                            ]
+                        },
+                        "Rosa": {
+                            "dia_base": "lunes",
+                            "sabados": [
+                                1,
+                                2,
+                                3,
+                                4
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "extras": [
+                                "2026-09-22",
+                                "2026-09-29"
+                            ]
+                        },
+                        "Rojo": {
+                            "dia_base": "martes",
+                            "sabados": [
+                                1,
+                                2,
+                                3,
+                                4
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "extras": [
+                                "2026-09-16",
+                                "2026-09-23"
+                            ]
+                        },
+                        "Azul": {
                             "dia_base": "viernes",
                             "sabados": [
                                 1,
@@ -990,60 +1840,6 @@
                             "extras": [
                                 "2026-09-07",
                                 "2026-09-14"
-                            ]
-                        },
-                        "Rosa": {
-                            "dia_base": "lunes",
-                            "sabados": [
-                                1,
-                                2,
-                                3,
-                                4
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total",
-                            "extras": [
-                                "2026-09-01",
-                                "2026-09-08"
-                            ]
-                        },
-                        "Rojo": {
-                            "dia_base": "martes",
-                            "sabados": [
-                                1,
-                                2,
-                                3,
-                                4
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total",
-                            "extras": [
-                                "2026-09-02",
-                                "2026-09-09"
-                            ]
-                        },
-                        "Azul": {
-                            "dia_base": "miercoles",
-                            "sabados": [
-                                1,
-                                2,
-                                3,
-                                4
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total",
-                            "extras": [
-                                "2026-09-03",
-                                "2026-09-10"
                             ]
                         }
                     }
