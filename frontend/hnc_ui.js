@@ -7,796 +7,724 @@ const state = {
 
 const FALLBACK_DEFAULTS = {
   params: {
-    pop_size: 100,
-    generaciones: 120,
-    mutacion: 0.05,
-    elitismo: 2,
-    peso_equidad: 1,
-    peso_ambiental_critico: 2.2,
-    peso_economico: 1.55,
-    nivel_imeca: 150,
-    start_month: "2026-04",
-    meses: 6,
+    pop_size: 100, generaciones: 120, mutacion: 0.05, elitismo: 2,
+    peso_equidad: 1, peso_ambiental_critico: 2.2, peso_economico: 1.55,
+    nivel_imeca: 150, start_month: "2026-04", meses: 6,
   },
-  ui: {
-    imeca: 151,
-    veh_holograma: "H1",
-    veh_digito: "all",
-    view_mode: "no-circula",
-  },
+  ui: { imeca: 151, veh_holograma: "H1", veh_digito: "all", view_mode: "no-circula" },
 };
 
 const DAYS = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
 const DIGIT_COLOR = {
-  0:"#2563eb", 9:"#2563eb", // Azul
-  1:"#16a34a", 2:"#16a34a", // Verde
-  3:"#dc2626", 4:"#dc2626", // Rojo
-  5:"#eab308", 6:"#eab308", // Amarillo
-  7:"#ec4899", 8:"#ec4899", // Rosa
+  0:"#2563eb", 9:"#2563eb", 1:"#16a34a", 2:"#16a34a", 3:"#dc2626", 4:"#dc2626",
+  5:"#eab308", 6:"#eab308", 7:"#ec4899", 8:"#ec4899",
 };
 const MONTH_NAMES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-
-const els = {
-  // Tab mode
-  tabDemo: document.getElementById("tabDemo"),
-  tabAdvanced: document.getElementById("tabAdvanced"),
-  panelDemo: document.getElementById("panelDemo"),
-  panelAdvanced: document.getElementById("panelAdvanced"),
-  demoStatusIcon: document.getElementById("demoStatusIcon"),
-  demoStatusText: document.getElementById("demoStatusText"),
-  demoVehicleSummary: document.getElementById("demoVehicleSummary"),
-  btnVerificar: document.getElementById("btnVerificar"),
-  
-  // Files
-  fileEodSemana: document.getElementById("fileEodSemana"),
-  fileEodSabado: document.getElementById("fileEodSabado"),
-  fileVmrc: document.getElementById("fileVmrc"),
-  fileVerificacion: document.getElementById("fileVerificacion"),
-  fileContaminantes: document.getElementById("fileContaminantes"),
-  
-  // Config
-  startMonth: document.getElementById("startMonth"),
-  horizonteMeses: document.getElementById("horizonteMeses"),
-  envSummary: document.getElementById("envSummary"),
-  imecaSlider: document.getElementById("imecaSlider"),
-  imecaBadge: document.getElementById("imecaBadge"),
-  popSize: document.getElementById("popSize"),
-  generaciones: document.getElementById("generaciones"),
-  mutacion: document.getElementById("mutacion"),
-  elitismo: document.getElementById("elitismo"),
-  pesoEquidad: document.getElementById("pesoEquidad"),
-  pesoAmbiental: document.getElementById("pesoAmbiental"),
-  pesoEconomico: document.getElementById("pesoEconomico"),
-  btnResetDefaults: document.getElementById("btnResetDefaults"),
-  
-  // Execution
-  btnRun: document.getElementById("btnRun"),
-  btnStop: document.getElementById("btnStop"),
-  generationLabel: document.getElementById("generationLabel"),
-  fitnessLabel: document.getElementById("fitnessLabel"),
-  progressFill: document.getElementById("progressFill"),
-  logBox: document.getElementById("logBox"),
-  globalStatus: document.getElementById("globalStatus"),
-  btnExport: document.getElementById("btnExport"),
-  
-  // Stats
-  statsStrip: document.getElementById("statsStrip"),
-  statZona: document.getElementById("statZona"),
-  statFitness: document.getElementById("statFitness"),
-  statH1: document.getElementById("statH1"),
-  statH2: document.getElementById("statH2"),
-  statH00: document.getElementById("statH00"),
-  
-  // Hybrid summary
-  hybridSummary: document.getElementById("hybridSummary"),
-  
-  // Calendar
-  vehHolograma: document.getElementById("vehHolograma"),
-  vehDigito: document.getElementById("vehDigito"),
-  viewMode: document.getElementById("viewMode"),
-  calendarPanel: document.getElementById("calendarPanel"),
-  calendarTitle: document.getElementById("calendarTitle"),
-  calendarGrid: document.getElementById("calendarGrid"),
-  dayDetail: document.getElementById("dayDetail"),
-  monthTabsWrap: document.getElementById("monthTabsWrap"),
-  btnPrevMonth: document.getElementById("btnPrevMonth"),
-  btnNextMonth: document.getElementById("btnNextMonth"),
-  resultsContainer: document.getElementById("resultsContainer"),
+const FALLBACK_GRUPOS_PLACA = {
+  Amarillo: [5, 6],
+  Rosa: [7, 8],
+  Rojo: [3, 4],
+  Verde: [1, 2],
+  Azul: [9, 0],
 };
 
-console.log("✓ Elementos del DOM identificados");
+const IMECA_WEIGHT_POINTS = [
+  { imeca: 0, weight: 0.8 },
+  { imeca: 50, weight: 0.8 },
+  { imeca: 100, weight: 1.2 },
+  { imeca: 150, weight: 2.2 },
+  { imeca: 200, weight: 2.5 },
+  { imeca: 300, weight: 3.5 },
+  { imeca: 400, weight: 5.0 },
+];
 
-// ── UTILS ─────────────────────────────────────────────────────────────────────
-function log(msg) {
-  const ts = new Date().toLocaleTimeString();
-  if (els.logBox) {
-    els.logBox.textContent += `[${ts}] ${msg}\n`;
-    els.logBox.scrollTop = els.logBox.scrollHeight;
+const els = {};
+
+function initializeDOM() {
+  els.tabDemo = document.getElementById("tabDemo") || document.createElement("div");
+  els.tabAdvanced = document.getElementById("tabAdvanced") || document.createElement("div");
+  els.panelDemo = document.getElementById("panelDemo") || document.createElement("div");
+  els.panelAdvanced = document.getElementById("panelAdvanced") || document.createElement("div");
+  els.demoStatusIcon = document.getElementById("demoStatusIcon") || document.createElement("div");
+  els.demoStatusText = document.getElementById("demoStatusText") || document.createElement("div");
+  els.demoVehicleSummary = document.getElementById("demoVehicleSummary") || document.createElement("div");
+  els.btnVerificar = document.getElementById("btnVerificar") || document.createElement("button");
+  els.fileEodSemana = document.getElementById("fileEodSemana") || document.createElement("input");
+  els.fileEodSabado = document.getElementById("fileEodSabado") || document.createElement("input");
+  els.fileVmrc = document.getElementById("fileVmrc") || document.createElement("input");
+  els.fileVerificacion = document.getElementById("fileVerificacion") || document.createElement("input");
+  els.fileContaminantes = document.getElementById("fileContaminantes") || document.createElement("input");
+  els.startMonth = document.getElementById("startMonth") || document.createElement("input");
+  els.horizonteMeses = document.getElementById("horizonteMeses") || document.createElement("input");
+  els.envSummary = document.getElementById("envSummary") || document.createElement("div");
+  els.imecaSlider = document.getElementById("imecaSlider") || document.createElement("input");
+  els.imecaBadge = document.getElementById("imecaBadge") || document.createElement("div");
+  els.popSize = document.getElementById("popSize") || document.createElement("input");
+  els.generaciones = document.getElementById("generaciones") || document.createElement("input");
+  els.mutacion = document.getElementById("mutacion") || document.createElement("input");
+  els.elitismo = document.getElementById("elitismo") || document.createElement("input");
+  els.pesoEquidad = document.getElementById("pesoEquidad") || document.createElement("input");
+  els.pesoAmbiental = document.getElementById("pesoAmbiental") || document.createElement("input");
+  els.pesoEconomico = document.getElementById("pesoEconomico") || document.createElement("input");
+  els.btnResetDefaults = document.getElementById("btnResetDefaults") || document.createElement("button");
+  els.btnRun = document.getElementById("btnRun") || document.createElement("button");
+  els.btnStop = document.getElementById("btnStop") || document.createElement("button");
+  els.generationLabel = document.getElementById("generationLabel") || document.createElement("div");
+  els.fitnessLabel = document.getElementById("fitnessLabel") || document.createElement("div");
+  els.progressFill = document.getElementById("progressFill") || document.createElement("div");
+  els.logBox = document.getElementById("logBox") || document.createElement("div");
+  els.globalStatus = document.getElementById("globalStatus") || document.createElement("div");
+  els.btnExport = document.getElementById("btnExport") || document.createElement("button");
+  els.statsStrip = document.getElementById("statsStrip") || document.createElement("div");
+  els.statZona = document.getElementById("statZona") || document.createElement("div");
+  els.statFitness = document.getElementById("statFitness") || document.createElement("div");
+  els.statH1 = document.getElementById("statH1") || document.createElement("div");
+  els.statH2 = document.getElementById("statH2") || document.createElement("div");
+  els.statH00 = document.getElementById("statH00") || document.createElement("div");
+  els.hybridSummary = document.getElementById("hybridSummary") || document.createElement("div");
+  els.vehHolograma = document.getElementById("vehHolograma") || document.createElement("select");
+  els.vehDigito = document.getElementById("vehDigito") || document.createElement("select");
+  els.viewMode = document.getElementById("viewMode") || document.createElement("select");
+  els.calendarPanel = document.getElementById("calendarPanel") || document.createElement("div");
+  els.calendarTitle = document.getElementById("calendarTitle") || document.createElement("div");
+  els.calendarGrid = document.getElementById("calendarGrid") || document.createElement("div");
+  els.dayDetail = document.getElementById("dayDetail") || document.createElement("div");
+  els.monthTabsWrap = document.getElementById("monthTabsWrap") || document.createElement("div");
+  els.resultsContainer = document.getElementById("resultsContainer") || document.createElement("div");
+}
+
+function getConfigDefaults(payload) {
+  const defaults = payload?.defaults || payload || {};
+  return {
+    params: { ...FALLBACK_DEFAULTS.params, ...(defaults.params || {}) },
+    ui: { ...FALLBACK_DEFAULTS.ui, ...(defaults.ui || {}) },
+    grupos_placa: payload?.grupos_placa || defaults.grupos_placa || FALLBACK_GRUPOS_PLACA,
+  };
+}
+
+function populateDigitOptions(gruposPlaca) {
+  if (!els.vehDigito) return;
+  const digits = new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  for (const value of Object.values(gruposPlaca || {})) {
+    if (!Array.isArray(value)) continue;
+    for (const digit of value) {
+      const num = Number(digit);
+      if (!Number.isNaN(num)) digits.add(num);
+    }
   }
-}
-function updateStatus(t) { 
-  if (els.globalStatus) els.globalStatus.textContent = t; 
-}
-function readFileAsText(file) {
-  return new Promise((res, rej) => {
-    const reader = new FileReader();
-    reader.onload = () => res(reader.result);
-    reader.onerror = rej;
-    reader.readAsText(file);
+
+  const previousValue = els.vehDigito.value || FALLBACK_DEFAULTS.ui.veh_digito;
+  els.vehDigito.innerHTML = "";
+
+  const optionAll = document.createElement("option");
+  optionAll.value = "all";
+  optionAll.textContent = "Todos";
+  els.vehDigito.appendChild(optionAll);
+
+  [...digits].sort((a, b) => a - b).forEach((digit) => {
+    const option = document.createElement("option");
+    option.value = String(digit);
+    option.textContent = String(digit);
+    els.vehDigito.appendChild(option);
   });
+
+  els.vehDigito.value = [...els.vehDigito.options].some(opt => opt.value === previousValue)
+    ? previousValue
+    : FALLBACK_DEFAULTS.ui.veh_digito;
 }
 
-// ── IMECA ─────────────────────────────────────────────────────────────────────
-function imecaToWeight(v) {
-  v = Number(v);
-  if (v <= 50)  return 0.8;
-  if (v <= 100) return 1.2;
-  if (v <= 150) return 1.8;
-  if (v <= 200) return 2.5;
-  if (v <= 300) return 3.5;
-  return Math.min(5.0, 4.0 + (v - 300) / 100 * 0.5);
+function applyConfigToUI(config) {
+  const normalized = getConfigDefaults(config);
+  state.defaults = normalized;
+
+  els.popSize.value = normalized.params.pop_size;
+  els.generaciones.value = normalized.params.generaciones;
+  els.mutacion.value = normalized.params.mutacion;
+  els.elitismo.value = normalized.params.elitismo;
+  els.pesoEquidad.value = normalized.params.peso_equidad;
+  els.pesoAmbiental.value = normalized.params.peso_ambiental_critico;
+  els.pesoEconomico.value = normalized.params.peso_economico;
+  els.imecaSlider.value = normalized.ui.imeca;
+  els.startMonth.value = normalized.params.start_month;
+  els.horizonteMeses.value = normalized.params.meses;
+
+  if (els.vehHolograma) {
+    els.vehHolograma.value = normalized.ui.veh_holograma;
+  }
+  populateDigitOptions(normalized.grupos_placa);
+  if (els.vehDigito) {
+    els.vehDigito.value = normalized.ui.veh_digito;
+  }
+  if (els.viewMode) {
+    els.viewMode.value = normalized.ui.view_mode;
+  }
+  syncClimateControls("imeca");
+  updateEnvSummary();
 }
 
-function imecaClassify(v) {
-  v = Number(v);
-  if (v <= 50)  return { label:"Buena",                 color:"#0284c7" };
-  if (v <= 100) return { label:"Aceptable",             color:"#0d9488" };
-  if (v <= 150) return { label:"Regular",               color:"#ca8a04" };
-  if (v <= 200) return { label:"Mala",                  color:"#ea580c" };
-  if (v <= 300) return { label:"Muy Mala",              color:"#dc2626" };
-  return        { label:"Extremadamente Mala",         color:"#7c3aed" };
-}
-
-function syncImecaSlider() {
-  if (!els.imecaSlider || !els.imecaBadge || !els.pesoAmbiental) return;
-  const val = els.imecaSlider.value;
-  const cls = imecaClassify(val);
-  els.imecaBadge.textContent = `${cls.label} — ${val}`;
-  els.imecaBadge.style.background = cls.color;
-  els.pesoAmbiental.value = imecaToWeight(val).toFixed(2);
+function imecaClassify(value) {
+  const imeca = Number(value);
+  if (imeca <= 50) return { label: "Buena", color: "#0284c7" };
+  if (imeca <= 100) return { label: "Aceptable", color: "#0d9488" };
+  if (imeca <= 150) return { label: "Regular", color: "#ca8a04" };
+  if (imeca <= 200) return { label: "Mala", color: "#ea580c" };
+  if (imeca <= 300) return { label: "Muy mala", color: "#dc2626" };
+  return { label: "Extrema", color: "#7c3aed" };
 }
 
 function updateImecaBadgeOnly(value) {
-  if (!els.imecaSlider || !els.imecaBadge) return;
+  if (!els.imecaBadge) return;
   const cls = imecaClassify(value);
-  els.imecaBadge.textContent = `${cls.label} — ${value}`;
-  els.imecaBadge.style.background = cls.color;
+  els.imecaBadge.textContent = `${cls.label} — ${Number(value)}`;
+  els.imecaBadge.style.backgroundColor = cls.color;
 }
 
-function applyDefaultFormValues(defaults) {
-  const params = defaults?.params || FALLBACK_DEFAULTS.params;
-  const ui = defaults?.ui || FALLBACK_DEFAULTS.ui;
-
-  if (els.popSize) els.popSize.value = params.pop_size;
-  if (els.generaciones) els.generaciones.value = params.generaciones;
-  if (els.mutacion) els.mutacion.value = params.mutacion;
-  if (els.elitismo) els.elitismo.value = params.elitismo;
-  if (els.pesoEquidad) els.pesoEquidad.value = params.peso_equidad;
-  if (els.pesoAmbiental) els.pesoAmbiental.value = params.peso_ambiental_critico;
-  if (els.pesoEconomico) els.pesoEconomico.value = params.peso_economico;
-  if (els.startMonth) els.startMonth.value = params.start_month;
-  if (els.horizonteMeses) els.horizonteMeses.value = params.meses;
-
-  if (els.imecaSlider) els.imecaSlider.value = ui.imeca;
-  updateImecaBadgeOnly(ui.imeca);
-  if (els.pesoAmbiental) els.pesoAmbiental.value = params.peso_ambiental_critico;
-
-  if (els.vehHolograma) els.vehHolograma.value = ui.veh_holograma || "H1";
-  if (els.vehDigito) els.vehDigito.value = ui.veh_digito || "all";
-  if (els.viewMode) els.viewMode.value = ui.view_mode || "no-circula";
-}
-
-async function cargarConfiguracionInicial() {
-  try {
-    const res = await fetch("/api/config-inicial");
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    state.defaults = data.defaults || FALLBACK_DEFAULTS;
-    applyDefaultFormValues(state.defaults);
-  } catch (e) {
-    state.defaults = FALLBACK_DEFAULTS;
-    applyDefaultFormValues(state.defaults);
-    log(`Usando valores por defecto locales: ${e.message}`);
-  }
-}
-
-// ── DEMO MODE ─────────────────────────────────────────────────────────────────
-async function verificarEntorno() {
-  if (!els.demoStatusIcon || !els.demoStatusText) return;
-  els.demoStatusIcon.textContent = "...";
-  els.demoStatusText.textContent = "Conectando con el backend...";
-  if (els.demoVehicleSummary) els.demoVehicleSummary.classList.add("hidden");
-  try {
-    const res = await fetch("/api/config-inicial");
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (data.status === "ok") {
-      els.demoStatusIcon.textContent = "✓";
-      els.demoStatusText.textContent = "Backend activo. Sistema listo.";
-    } else {
-      els.demoStatusIcon.textContent = "⚠";
-      els.demoStatusText.textContent = "Backend: " + (data.message || "estado incierto");
+function interpolatePoints(value, points, xKey, yKey) {
+  if (!Array.isArray(points) || points.length === 0) return value;
+  const numericValue = Number(value);
+  if (Number.isNaN(numericValue)) return points[0][yKey];
+  if (numericValue <= points[0][xKey]) return points[0][yKey];
+  if (numericValue >= points[points.length - 1][xKey]) return points[points.length - 1][yKey];
+  for (let index = 0; index < points.length - 1; index++) {
+    const left = points[index];
+    const right = points[index + 1];
+    if (numericValue >= left[xKey] && numericValue <= right[xKey]) {
+      const ratio = (numericValue - left[xKey]) / (right[xKey] - left[xKey]);
+      return left[yKey] + ratio * (right[yKey] - left[yKey]);
     }
-  } catch (e) {
-    els.demoStatusIcon.textContent = "✗";
-    els.demoStatusText.textContent = `Error: ${e.message}`;
   }
+  return points[points.length - 1][yKey];
 }
 
-function bindModeTabs() {
-  if (!els.tabDemo || !els.tabAdvanced) return;
-  [els.tabDemo, els.tabAdvanced].forEach(tab => {
-    tab.addEventListener("click", (e) => {
-      document.querySelectorAll(".mode-tab").forEach(t => t.classList.remove("active"));
-      e.target.classList.add("active");
-      if (els.panelDemo) els.panelDemo.classList.toggle("hidden");
-      if (els.panelAdvanced) els.panelAdvanced.classList.toggle("hidden");
-    });
-  });
-  if (els.btnVerificar) {
-    els.btnVerificar.addEventListener("click", verificarEntorno);
-  }
-  setTimeout(verificarEntorno, 600);
+function imecaToWeight(imeca) {
+  return Number(interpolatePoints(imeca, IMECA_WEIGHT_POINTS, "imeca", "weight")).toFixed(2);
 }
 
-// ── FILES ─────────────────────────────────────────────────────────────────────
-function bindFiles() {
-  const inputs = [
-    [els.fileEodSemana, "eodSemana"],
-    [els.fileEodSabado, "eodSabado"],
-    [els.fileVmrc, "vmrc"],
-    [els.fileVerificacion, "verificacion"],
-    [els.fileContaminantes, "contaminantes"]
-  ];
-  inputs.forEach(([input, key]) => {
-    if (input) {
-      input.addEventListener("change", (e) => {
-        state.files[key] = e.target.files[0];
-        refreshEnvSummary();
-      });
-    }
-  });
+function weightToImeca(weight) {
+  const inversePoints = IMECA_WEIGHT_POINTS.map(point => ({ imeca: point.weight, weight: point.imeca }));
+  return Math.round(interpolatePoints(weight, inversePoints, "imeca", "weight"));
 }
 
-function refreshEnvSummary() {
-  if (!els.envSummary) return;
-  const labels = {
-    eodSemana: "EOD semana",
-    eodSabado: "EOD sábado",
-    vmrc: "VMRC",
-    verificacion: "Verificación",
-    contaminantes: "Contaminantes",
-  };
-  const loaded = Object.entries(state.files).filter(([,v]) => v).map(([k,v]) => `${labels[k] || k}: ${v.name}`);
-  const missing = getMissingEtlSources();
-  if (loaded.length) {
-    const missingTxt = missing.length ? ` | Faltan: ${missing.join(", ")}` : " | Todas las fuentes cargadas";
-    els.envSummary.textContent = `Fuentes ETL cargadas (${loaded.length}/5): ${loaded.join(" | ")}${missingTxt}`;
+function syncClimateControls(source) {
+  if (!els.imecaSlider || !els.pesoAmbiental) return;
+  if (source === "weight") {
+    const imecaValue = weightToImeca(els.pesoAmbiental.value);
+    els.imecaSlider.value = String(Math.max(0, Math.min(400, imecaValue)));
   } else {
-    els.envSummary.textContent = `Sin fuentes ETL cargadas. Faltan: ${missing.join(", ")}`;
+    els.pesoAmbiental.value = imecaToWeight(els.imecaSlider.value);
+  }
+  updateImecaBadgeOnly(els.imecaSlider.value);
+  updateEnvSummary();
+}
+
+function setRunningUi(isRunning, message) {
+  if (els.btnRun) els.btnRun.disabled = isRunning;
+  if (els.btnStop) els.btnStop.disabled = !isRunning;
+  if (els.globalStatus) {
+    els.globalStatus.textContent = message || (isRunning ? "Optimizando..." : "Listo");
+  }
+  if (els.logBox && isRunning) {
+    els.logBox.innerHTML = "<p>Iniciando algoritmo...</p><p>Procesando... esto puede tomar unos minutos.</p>";
   }
 }
 
-function getMissingEtlSources() {
-  const labels = {
-    eodSemana: "EOD semana",
-    eodSabado: "EOD sábado",
-    vmrc: "VMRC",
-    verificacion: "Verificación",
-    contaminantes: "Contaminantes",
-  };
-  return Object.entries(state.files)
-    .filter(([, value]) => !value)
-    .map(([key]) => labels[key] || key);
+function setResultsVisible(visible) {
+  if (els.calendarPanel) els.calendarPanel.classList.toggle("hidden", !visible);
+  if (els.statsStrip) els.statsStrip.classList.toggle("hidden", !visible);
+  if (els.hybridSummary) els.hybridSummary.classList.toggle("hidden", !visible);
+  if (els.btnExport) els.btnExport.disabled = !visible;
+  if (els.resultsContainer) {
+    els.resultsContainer.classList.toggle("hidden", visible);
+    els.resultsContainer.textContent = visible ? "" : "Ejecuta el modelo para ver el calendario óptimo.";
+  }
 }
 
-function isAdvancedModeActive() {
-  return !!(els.tabAdvanced && els.tabAdvanced.classList.contains("active"));
+function normalizeResultForUI(result) {
+  if (!result) return null;
+  const meses = result?.mejor_solucion?.meses;
+  if (!Array.isArray(meses)) {
+    return result?.calendario_meses ? result : null;
+  }
+  const grupos = { Amarillo:[5,6], Rosa:[7,8], Rojo:[3,4], Verde:[1,2], Azul:[9,0] };
+  const calendario = {};
+  for (const mesData of meses) {
+    const key = `${mesData.year}-${String(mesData.mes).padStart(2,"0")}`;
+    const castigosH1 = {};
+    const castigosH2 = {};
+    for (const [color, cfg] of Object.entries(mesData?.h1?.por_color || {})) {
+      const dia = (cfg.dia_base || "").toLowerCase();
+      const diaNormal = dia === "miercoles" ? "Miércoles" : `${dia.slice(0,1).toUpperCase()}${dia.slice(1)}`;
+      const horario = `${String(cfg.horario?.[0] ?? 5).padStart(2, "0")}:00 a ${String(cfg.horario?.[1] ?? 22).padStart(2, "0")}:00`;
+      const zona = `${(cfg.zona || "total").slice(0, 1).toUpperCase()}${(cfg.zona || "total").slice(1)}`;
+      castigosH1[color] = {
+        placas: grupos[color] || [], dia_normal: diaNormal, dias_extra: [],
+        sabados: Array.isArray(cfg.sabados) ? cfg.sabados : [],
+        total_sabados_castigados: Array.isArray(cfg.sabados) ? cfg.sabados.length : 0,
+        horario: horario,
+        zona: zona,
+      };
+    }
+    for (const [color, cfg] of Object.entries(mesData?.h2?.por_color || {})) {
+      const dia = (cfg.dia_base || "").toLowerCase();
+      const diaNormal = dia === "miercoles" ? "Miércoles" : `${dia.slice(0,1).toUpperCase()}${dia.slice(1)}`;
+      const horario = `${String(cfg.horario?.[0] ?? 5).padStart(2, "0")}:00 a ${String(cfg.horario?.[1] ?? 22).padStart(2, "0")}:00`;
+      const zona = `${(cfg.zona || "total").slice(0, 1).toUpperCase()}${(cfg.zona || "total").slice(1)}`;
+      const diasExtra = (cfg.extras || []).map(iso => {
+        const [yr, mo, dy] = iso.split("-").map(Number);
+        const dt = new Date(yr, mo - 1, dy);
+        const idx = dt.getDay() === 0 ? 6 : dt.getDay() - 1;
+        return DAYS[idx];
+      });
+      castigosH2[color] = {
+        placas: grupos[color] || [], dia_normal: diaNormal,
+        dias_extra: diasExtra, fechas_extra: Array.isArray(cfg.extras) ? cfg.extras : [],
+        sabados: Array.isArray(cfg.sabados) ? cfg.sabados : [],
+        total_sabados_castigados: Array.isArray(cfg.sabados) ? cfg.sabados.length : 0,
+        horario: horario,
+        zona: zona,
+      };
+    }
+    const h1Verde = mesData?.h1?.por_color?.Verde || { horario:[5,22], zona:"total" };
+    const h2Verde = mesData?.h2?.por_color?.Verde || { horario:[5,22], zona:"total" };
+    const estado = mesData.contaminacion || "normal";
+    calendario[key] = {
+      estado_contaminacion: `${estado.slice(0,1).toUpperCase()}${estado.slice(1)}`,
+      castigos_hologramas: {
+        H00: { regla: "Ninguno. Circulan libremente." },
+        H0: { regla: "Ninguno. Circulan libremente." },
+        H1: {
+          horario: `${String(h1Verde.horario?.[0]??5).padStart(2,"0")}:00 a ${String(h1Verde.horario?.[1]??22).padStart(2,"0")}:00`,
+          zona: `${(h1Verde.zona||"total").slice(0,1).toUpperCase()}${(h1Verde.zona||"total").slice(1)}`,
+          colores: castigosH1,
+        },
+        H2: {
+          horario: `${String(h2Verde.horario?.[0]??5).padStart(2,"0")}:00 a ${String(h2Verde.horario?.[1]??22).padStart(2,"0")}:00`,
+          zona: `${(h2Verde.zona||"total").slice(0,1).toUpperCase()}${(h2Verde.zona||"total").slice(1)}`,
+          colores: castigosH2,
+        },
+      },
+    };
+  }
+  return { ...result, calendario_meses: calendario };
 }
 
-// ── PARAMS ────────────────────────────────────────────────────────────────────
-function getParams() {
-  return {
-    pop_size: Number(els.popSize?.value || 100),
-    generaciones: Number(els.generaciones?.value || 120),
-    mutacion: Number(els.mutacion?.value || 0.05),
-    elitismo: Number(els.elitismo?.value || 2),
-    peso_equidad: Number(els.pesoEquidad?.value || 1.0),
-    peso_ambiental_critico: Number(els.pesoAmbiental?.value || 2.2),
-    peso_economico: Number(els.pesoEconomico?.value || 1.55),
-    nivel_imeca: Number(els.imecaSlider?.value || 150),
-    start_month: els.startMonth?.value || "2026-04",
-    meses: Number(els.horizonteMeses?.value || 6),
-  };
-}
-
-// ── STATS STRIP ───────────────────────────────────────────────────────────────
-function renderStatsStrip(result) {
-  if (!result) return;
-  const fitness = result.mejor_fitness || 0;
-  if (els.statZona) els.statZona.textContent = "CDMX Total";
-  if (els.statFitness) els.statFitness.textContent = fitness.toFixed(4);
-  if (els.statH1) els.statH1.textContent = "100%";
-  if (els.statH2) els.statH2.textContent = "100%";
-  if (els.statH00) els.statH00.textContent = "Libre";
-  if (els.statsStrip) els.statsStrip.classList.remove("hidden");
-}
-
-// ── HYBRID SUMMARY ────────────────────────────────────────────────────────────
-function renderHybridSummary(result) {
-  if (!result || !els.hybridSummary) {
-    if (els.hybridSummary) els.hybridSummary.classList.add("hidden");
+function renderMonthTabs() {
+  if (!state.result?.calendario_meses) {
+    if (els.monthTabsWrap) els.monthTabsWrap.innerHTML = "";
     return;
   }
-  const p = result.parametros || {};
-  const html = `<h4>Configuración del AG Evolutivo</h4>
-    <div class="hybrid-metrics">
-      <span class="metric-chip">Población: ${p.pop_size || 100}</span>
-      <span class="metric-chip">Generaciones: ${p.generaciones || 120}</span>
-      <span class="metric-chip">Mutación: ${(p.mutacion || 0.05).toFixed(3)}</span>
-      <span class="metric-chip">Peso ambiental: ${(p.peso_ambiental_critico || 2.2).toFixed(2)}</span>
-    </div>`;
-  els.hybridSummary.innerHTML = html;
-  els.hybridSummary.classList.remove("hidden");
-}
-
-// ── DIGIT OPTIONS ─────────────────────────────────────────────────────────────
-function fillDigitOptions() {
-  if (!els.vehDigito) return;
-  els.vehDigito.innerHTML = "";
-  const all = document.createElement("option");
-  all.value = "all"; 
-  all.textContent = "Todos";
-  els.vehDigito.appendChild(all);
-  for (let d = 0; d <= 9; d++) {
-    const opt = document.createElement("option");
-    opt.value = String(d); 
-    opt.textContent = String(d);
-    els.vehDigito.appendChild(opt);
+  state.monthKeys = Object.keys(state.result.calendario_meses).sort();
+  if (els.monthTabsWrap) {
+    els.monthTabsWrap.innerHTML = "";
+    state.monthKeys.forEach((key, idx) => {
+      const btn = document.createElement("button");
+      btn.textContent = key;
+      btn.className = "month-tab-btn";
+      btn.classList.toggle("active", idx === state.monthIndex);
+      btn.addEventListener("click", () => selectMonth(idx));
+      els.monthTabsWrap.appendChild(btn);
+    });
   }
 }
 
-function getSaturdayNumber(dt) {
-  let count = 0;
-  for (let day = 1; day <= dt.getDate(); day++) {
-    const current = new Date(dt.getFullYear(), dt.getMonth(), day);
-    if (current.getDay() === 6) count += 1;
+function selectMonth(idx) {
+  state.monthIndex = idx;
+  state.selectedDate = null;
+  renderMonthTabs();
+  renderCalendarGrid();
+  renderDayDetail();
+}
+
+function renderCalendarGrid() {
+  if (!els.calendarGrid) return;
+  els.calendarGrid.innerHTML = "";
+  if (!state.monthKeys.length) return;
+  const monthKey = state.monthKeys[state.monthIndex];
+  if (!monthKey) return;
+  const [year, month] = monthKey.split("-").map(Number);
+  const firstDay = new Date(year, month - 1, 1);
+  const lastDay = new Date(year, month, 0);
+  const startDate = new Date(firstDay);
+  startDate.setDate(startDate.getDate() - (firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1));
+  const monthData = state.result?.calendario_meses?.[monthKey];
+  const holograma = els.vehHolograma?.value || "H1";
+  const digitoFilter = els.vehDigito?.value || "all";
+  const weekDayLabels = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sab", "Dom"];
+  weekDayLabels.forEach(day => {
+    const h = document.createElement("div");
+    h.className = "weekday";
+    h.textContent = day;
+    els.calendarGrid.appendChild(h);
+  });
+  let currentDate = new Date(startDate);
+  const endVisibleDate = new Date(lastDay);
+  const lastDayIndex = lastDay.getDay() === 0 ? 6 : lastDay.getDay() - 1;
+  endVisibleDate.setDate(endVisibleDate.getDate() + (6 - lastDayIndex));
+  while (currentDate <= endVisibleDate) {
+    const dayEl = document.createElement("div");
+    dayEl.className = "day-cell";
+    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-${String(currentDate.getDate()).padStart(2, "0")}`;
+    const isOutsideMonth = currentDate.getMonth() !== month - 1;
+    if (isOutsideMonth) {
+      dayEl.classList.add("outside");
+      dayEl.setAttribute("aria-hidden", "true");
+    } else {
+      const number = document.createElement("span");
+      number.className = "day-number";
+      number.textContent = currentDate.getDate();
+      dayEl.appendChild(number);
+    }
+    if (!isOutsideMonth) {
+      const restrictedDigits = getRestrictedDigitsForDay(monthData, holograma, currentDate);
+      const displayDigits = digitoFilter === "all" ? restrictedDigits : restrictedDigits.filter(d => parseInt(digitoFilter) === d);
+      if (displayDigits.length > 0) {
+        const dotsContainer = document.createElement("div");
+        dotsContainer.className = "day-dot-wrap";
+        displayDigits.forEach(digit => {
+          const dot = document.createElement("span");
+          dot.className = "day-dot";
+          dot.style.backgroundColor = DIGIT_COLOR[digit] || "#999";
+          dotsContainer.appendChild(dot);
+        });
+        dayEl.appendChild(dotsContainer);
+      }
+      dayEl.addEventListener("click", () => {
+        state.selectedDate = dateStr;
+        renderCalendarGrid();
+        renderDayDetail();
+      });
+      dayEl.style.cursor = "pointer";
+      if (state.selectedDate === dateStr) {
+        dayEl.classList.add("selected");
+      }
+    }
+    els.calendarGrid.appendChild(dayEl);
+    currentDate.setDate(currentDate.getDate() + 1);
   }
-  return count;
+  if (els.calendarTitle) {
+    els.calendarTitle.textContent = `${MONTH_NAMES[month - 1]} ${year}`;
+  }
 }
 
 function getRestrictedDigitsForDay(monthData, holograma, dt) {
+  if (!monthData) return [];
   const dayName = DAYS[dt.getDay() === 0 ? 6 : dt.getDay() - 1];
   const isoDate = dt.toISOString().split("T")[0];
   const castigos = monthData?.castigos_hologramas?.[holograma] || {};
   const colores = castigos.colores || {};
   const saturdayNumber = getSaturdayNumber(dt);
   const restrictedDigits = [];
-
-  for (const info of Object.values(colores)) {
-    const diaNormal = info?.dia_normal;
-    const diasExtra = Array.isArray(info?.dias_extra) ? info.dias_extra : [];
-    const fechasExtra = Array.isArray(info?.fechas_extra) ? info.fechas_extra : [];
-    const sabadosCastigados = Number(info?.total_sabados_castigados || 0);
-    const placas = Array.isArray(info?.placas) ? info.placas : [];
-
-    const isSaturdayRestricted = dt.getDay() === 6 && saturdayNumber <= sabadosCastigados;
-    const isExactExtraRestricted = fechasExtra.includes(isoDate);
-    const hasExactExtras = fechasExtra.length > 0;
-    const isWeekdayExtraFallback = !hasExactExtras && diasExtra.includes(dayName);
-    const isWeekdayRestricted = dayName === diaNormal || isExactExtraRestricted || isWeekdayExtraFallback;
-
-    if (isSaturdayRestricted || isWeekdayRestricted) {
-      restrictedDigits.push(...placas.map(Number).filter(v => !Number.isNaN(v)));
+  for (const [color, info] of Object.entries(colores)) {
+    const placas = info.placas || [];
+    const isNormalDay = info.dia_normal === dayName;
+    const isSaturday = dayName === "Sábado";
+    const isSaturdayRestricted = isSaturday && Array.isArray(info.sabados) && info.sabados.includes(saturdayNumber);
+    const isExtraDay = Array.isArray(info.fechas_extra) && info.fechas_extra.includes(isoDate);
+    if (isNormalDay || isSaturdayRestricted || isExtraDay) {
+      placas.forEach(p => restrictedDigits.push(p));
     }
   }
-
   return [...new Set(restrictedDigits)].sort((a, b) => a - b);
 }
 
-function normalizeResultForUI(result) {
-  if (!result) return null;
-
-  const meses = result?.mejor_solucion?.meses;
-  if (!Array.isArray(meses)) {
-    return result?.calendario_meses ? result : null;
-  }
-
-  const grupos = {
-    Amarillo: [5, 6],
-    Rosa: [7, 8],
-    Rojo: [3, 4],
-    Verde: [1, 2],
-    Azul: [9, 0],
-  };
-
-  const calendario = {};
-  for (const mesData of meses) {
-    const key = `${mesData.year}-${String(mesData.mes).padStart(2, "0")}`;
-    const castigosH1 = {};
-    const castigosH2 = {};
-
-    for (const [color, cfg] of Object.entries(mesData?.h1?.por_color || {})) {
-      const dia = (cfg.dia_base || "").toLowerCase();
-      const diaNormal = dia === "miercoles" ? "Miércoles" : `${dia.slice(0, 1).toUpperCase()}${dia.slice(1)}`;
-      castigosH1[color] = {
-        placas: grupos[color] || [],
-        dia_normal: diaNormal,
-        dias_extra: [],
-        total_sabados_castigados: Array.isArray(cfg.sabados) ? cfg.sabados.length : 0,
-      };
-    }
-
-    for (const [color, cfg] of Object.entries(mesData?.h2?.por_color || {})) {
-      const dia = (cfg.dia_base || "").toLowerCase();
-      const diaNormal = dia === "miercoles" ? "Miércoles" : `${dia.slice(0, 1).toUpperCase()}${dia.slice(1)}`;
-      const diasExtra = (cfg.extras || []).map(iso => {
-        const dt = new Date(`${iso}T00:00:00`);
-        const idx = dt.getDay() === 0 ? 6 : dt.getDay() - 1;
-        return DAYS[idx];
-      });
-      castigosH2[color] = {
-        placas: grupos[color] || [],
-        dia_normal: diaNormal,
-        dias_extra: diasExtra,
-        fechas_extra: Array.isArray(cfg.extras) ? cfg.extras : [],
-        total_sabados_castigados: Array.isArray(cfg.sabados) ? cfg.sabados.length : 0,
-      };
-    }
-
-    const h1Verde = mesData?.h1?.por_color?.Verde || { horario: [5, 22], zona: "total" };
-    const h2Verde = mesData?.h2?.por_color?.Verde || { horario: [5, 22], zona: "total" };
-    const estado = mesData.contaminacion || "normal";
-
-    calendario[key] = {
-      estado_contaminacion: `${estado.slice(0, 1).toUpperCase()}${estado.slice(1)}`,
-      castigos_hologramas: {
-        H00: { regla: "Ninguno. Circulan libremente." },
-        H0: { regla: "Ninguno. Circulan libremente." },
-        H1: {
-          horario: `${String(h1Verde.horario?.[0] ?? 5).padStart(2, "0")}:00 a ${String(h1Verde.horario?.[1] ?? 22).padStart(2, "0")}:00`,
-          zona: `${(h1Verde.zona || "total").slice(0, 1).toUpperCase()}${(h1Verde.zona || "total").slice(1)}`,
-          colores: castigosH1,
-        },
-        H2: {
-          horario: `${String(h2Verde.horario?.[0] ?? 5).padStart(2, "0")}:00 a ${String(h2Verde.horario?.[1] ?? 22).padStart(2, "0")}:00`,
-          zona: `${(h2Verde.zona || "total").slice(0, 1).toUpperCase()}${(h2Verde.zona || "total").slice(1)}`,
-          colores: castigosH2,
-        },
-      },
-    };
-  }
-
-  return { ...result, calendario_meses: calendario };
+function getSaturdayNumber(dt) {
+  if (DAYS[dt.getDay() === 0 ? 6 : dt.getDay() - 1] !== "Sábado") return -1;
+  const year = dt.getFullYear();
+  const month = dt.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const firstSaturday = new Date(year, month, 1 + ((6 - firstDay.getDay() + 7) % 7));
+  const saturdayNum = Math.floor((dt.getDate() - firstSaturday.getDate()) / 7) + 1;
+  return saturdayNum;
 }
 
-// ── MONTH TABS ────────────────────────────────────────────────────────────────
-function renderMonthTabs() {
-  if (!els.monthTabsWrap || !state.monthKeys.length) return;
-  els.monthTabsWrap.innerHTML = "";
-  state.monthKeys.forEach((key, idx) => {
-    const btn = document.createElement("button");
-    btn.className = `month-tab-btn ${idx === state.monthIndex ? "active" : ""}`;
-    btn.textContent = key;
-    btn.addEventListener("click", () => {
-      state.monthIndex = idx;
-      renderMonthTabs();
-      renderCalendarMonth();
-    });
-    els.monthTabsWrap.appendChild(btn);
-  });
-}
-
-// ── CALENDAR ──────────────────────────────────────────────────────────────────
-function renderCalendarMonth() {
-  if (!state.result || !state.monthKeys.length || !els.calendarGrid) {
-    if (els.calendarPanel) els.calendarPanel.classList.add("hidden");
-    return;
-  }
-  
-  const monthKey = state.monthKeys[state.monthIndex];
-  const monthData = state.result.calendario_meses?.[monthKey];
-  if (!monthData) return;
-
-  const [year, month] = monthKey.split("-").map(Number);
-  
-  if (els.calendarTitle) {
-    els.calendarTitle.textContent = `${MONTH_NAMES[month - 1]} ${year}`;
-  }
-
-  els.calendarGrid.innerHTML = "";
-  
-  // Headers
-  const headers = ["L", "M", "M", "J", "V", "S", "D"];
-  headers.forEach(h => {
-    const div = document.createElement("div");
-    div.className = "weekday";
-    div.textContent = h;
-    els.calendarGrid.appendChild(div);
-  });
-
-  // Días anteriores
-  const firstDay = new Date(year, month - 1, 1).getDay();
-  const daysInMonth = new Date(year, month, 0).getDate();
-
-  for (let i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
-    const div = document.createElement("div");
-    div.className = "day-cell outside";
-    els.calendarGrid.appendChild(div);
-  }
-
-  // Días del mes
-  const holograma = els.vehHolograma?.value || "H1";
-  const selectedDigitRaw = els.vehDigito?.value || "all";
-  const viewMode = els.viewMode?.value || "no-circula";
-  
-  for (let d = 1; d <= daysInMonth; d++) {
-    const cell = document.createElement("div");
-    cell.className = "day-cell allowed";
-    const dt = new Date(year, month - 1, d);
-    const restrictedDigits = getRestrictedDigitsForDay(monthData, holograma, dt);
-    const selectedDigit = selectedDigitRaw === "all" ? null : Number(selectedDigitRaw);
-    const matchesSelection = selectedDigit == null
-      ? restrictedDigits.length > 0
-      : restrictedDigits.includes(selectedDigit);
-    const isRestricted = matchesSelection;
-
-    if (viewMode === "no-circula") {
-      cell.className = isRestricted ? "day-cell blocked" : "day-cell allowed";
-    } else {
-      cell.className = "day-cell allowed";
-    }
-
-    const visibleDots = selectedDigit == null
-      ? restrictedDigits
-      : (restrictedDigits.includes(selectedDigit) ? [selectedDigit] : []);
-
-    const dotsHtml = visibleDots
-      .map(digit => `<span class="day-dot" title="Dígito ${digit}" style="background:${DIGIT_COLOR[digit] || "#64748b"};"></span>`)
-      .join("");
-
-    cell.innerHTML = `
-      <span class="day-number">${d}</span>
-      <span class="day-dot-wrap">${dotsHtml}</span>
-    `;
-    
-    cell.addEventListener("click", () => {
-      state.selectedDate = new Date(year, month - 1, d).toISOString().split("T")[0];
-      renderDayDetail();
-    });
-    
-    els.calendarGrid.appendChild(cell);
-  }
-
-  if (els.calendarPanel) els.calendarPanel.classList.remove("hidden");
-}
-
-// ── DAY DETAIL ────────────────────────────────────────────────────────────────
 function renderDayDetail() {
   if (!state.selectedDate || !els.dayDetail) {
     if (els.dayDetail) els.dayDetail.textContent = "Selecciona un día para ver el detalle.";
     return;
   }
-
-  const dt = new Date(state.selectedDate);
+  const [yr, mo, dy] = state.selectedDate.split("-").map(Number);
+  const dt = new Date(yr, mo - 1, dy);
   const dayName = DAYS[dt.getDay() === 0 ? 6 : dt.getDay() - 1];
   const year = dt.getFullYear();
   const month = dt.getMonth() + 1;
-  const monthKey = `${year}-${String(month).padStart(2, "0")}`;
-  
+  const monthKey = `${year}-${String(month).padStart(2,"0")}`;
   const monthData = state.result?.calendario_meses?.[monthKey];
   if (!monthData) {
     els.dayDetail.innerHTML = "<strong>Sin información para esta fecha.</strong>";
     return;
   }
-
   const holograma = els.vehHolograma?.value || "H1";
   const castigos = monthData.castigos_hologramas?.[holograma] || {};
-  const horario = castigos.horario || "Libre";
-  const zona = castigos.zona || "Total";
-
-  let html = `<strong>${dayName}, ${dt.getDate()} de ${MONTH_NAMES[month - 1]}</strong><br/>`;
-  html += `<span class="detail-label">Holograma ${holograma}:</span> ${horario} | Zona: ${zona}<br/>`;
-
   const colores = castigos.colores || {};
-  if (Object.keys(colores).length > 0) {
+  let dayHorario = castigos.horario || "Libre";
+  let dayZona = castigos.zona || "Total";
+  let matchedColors = [];
+  for (const [color, info] of Object.entries(colores)) {
+    const isoDate = state.selectedDate;
+    const isNormalDay = info.dia_normal === dayName;
+    const isSaturday = dayName === "Sábado";
+    const isSaturdayRestricted = isSaturday && Array.isArray(info.sabados) && info.sabados.includes(getSaturdayNumber(dt));
+    const isExtraDay = Array.isArray(info.fechas_extra) && info.fechas_extra.includes(isoDate);
+    if (isNormalDay || isSaturdayRestricted || isExtraDay) {
+      matchedColors.push({ color, info });
+      if (isNormalDay || isSaturdayRestricted) {
+        dayHorario = info.horario || castigos.horario || "Libre";
+        dayZona = info.zona || castigos.zona || "Total";
+      }
+    }
+  }
+  let html = `<strong>${dayName}, ${dt.getDate()} de ${MONTH_NAMES[month-1]}</strong><br/>`;
+  html += `<span class="detail-label">Holograma ${holograma}:</span> ${dayHorario} | Zona: ${dayZona}<br/>`;
+  if (matchedColors.length > 0) {
     html += `<strong>Restricciones por color:</strong><br/>`;
-    for (const [color, info] of Object.entries(colores)) {
+    for (const { color, info } of matchedColors) {
       const placas = info.placas?.join(",") || "—";
       const iNormal = info.dia_normal === dayName ? " ✓" : "";
       const fechasExtra = Array.isArray(info.fechas_extra) ? info.fechas_extra : [];
       const extrasTxt = fechasExtra.length ? ` | extras: ${fechasExtra.join(", ")}` : "";
-      html += `  <span class="bloque-tag">${color} (placas ${placas})${iNormal}${extrasTxt}</span>`;
+      const colorHorario = info.horario || "—";
+      const colorZona = info.zona || "—";
+      html += `  <span class="bloque-tag">${color} (placas ${placas})${iNormal} | ${colorHorario} | ${colorZona}${extrasTxt}</span>`;
     }
   } else {
     html += `<span style="color: var(--muted);">Sin restricciones específicas.</span>`;
   }
-
   els.dayDetail.innerHTML = html;
 }
 
-// ── RESULTS ───────────────────────────────────────────────────────────────────
-function renderResults(result) {
-  const normalized = normalizeResultForUI(result);
-  if (!normalized || !normalized.calendario_meses) {
-    if (els.resultsContainer) els.resultsContainer.innerHTML = '<div class="results-empty">Ejecuta el modelo para ver el calendario óptimo.</div>';
-    return;
+function loadFiles() {
+  const files = {
+    eodSemana: els.fileEodSemana?.files?.[0],
+    eodSabado: els.fileEodSabado?.files?.[0],
+    vmrc: els.fileVmrc?.files?.[0],
+    verificacion: els.fileVerificacion?.files?.[0],
+    contaminantes: els.fileContaminantes?.files?.[0],
+  };
+  for (const [key, file] of Object.entries(files)) {
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          state.files[key] = JSON.parse(e.target.result);
+        } catch (err) {
+          console.error(`Error parsing ${key}:`, err);
+        }
+      };
+      reader.readAsText(file);
+    }
   }
-
-  state.result = normalized;
-  state.monthKeys = Object.keys(normalized.calendario_meses).sort();
-  state.monthIndex = 0;
-
-  renderStatsStrip(normalized);
-  renderHybridSummary(normalized);
-  renderMonthTabs();
-  renderCalendarMonth();
-
-  if (els.resultsContainer) els.resultsContainer.innerHTML = "";
-  if (els.btnExport) els.btnExport.disabled = false;
 }
 
-// ── EXPORT ────────────────────────────────────────────────────────────────────
-function downloadJson(filename, payload) {
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+function updateEnvSummary() {
+  if (!els.envSummary) return;
+  const imeca = els.imecaSlider?.value || 150;
+  const nivel = imeca > 200 ? "Crítico" : imeca > 150 ? "Desfavorable" : "Normal";
+  els.envSummary.textContent = `IMECA: ${imeca} (${nivel})`;
+  updateImecaBadgeOnly(imeca);
+}
+
+function gatherRunParams() {
+  return {
+    pop_size: parseInt(els.popSize?.value || 100),
+    generaciones: parseInt(els.generaciones?.value || 120),
+    mutacion: parseFloat(els.mutacion?.value || 0.05),
+    elitismo: parseInt(els.elitismo?.value || 2),
+    peso_equidad: parseFloat(els.pesoEquidad?.value || 1),
+    peso_ambiental_critico: parseFloat(els.pesoAmbiental?.value || 2.2),
+    peso_economico: parseFloat(els.pesoEconomico?.value || 1.55),
+    nivel_imeca: parseInt(els.imecaSlider?.value || 150),
+    start_month: els.startMonth?.value || "2026-04",
+    meses: parseInt(els.horizonteMeses?.value || 6),
+  };
+}
+
+async function runAlgorithm() {
+  if (state.running) return;
+  loadFiles();
+  state.running = true;
+  state.stopRequested = false;
+  setRunningUi(true, "Optimizando...");
+  const params = gatherRunParams();
+  const formData = new FormData();
+  formData.append("params", JSON.stringify(params));
+  if (els.fileEodSemana?.files?.[0]) formData.append("eodEntreSemanaCsv", els.fileEodSemana.files[0]);
+  if (els.fileEodSabado?.files?.[0]) formData.append("eodSabado", els.fileEodSabado.files[0]);
+  if (els.fileVmrc?.files?.[0]) formData.append("vmrc", els.fileVmrc.files[0]);
+  if (els.fileVerificacion?.files?.[0]) formData.append("verificacion", els.fileVerificacion.files[0]);
+  if (els.fileContaminantes?.files?.[0]) formData.append("contaminantes", els.fileContaminantes.files[0]);
+  state.runController = new AbortController();
+  try {
+    const response = await fetch("/api/run", {
+      method: "POST",
+      body: formData,
+      signal: state.runController.signal,
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    if (!state.stopRequested) {
+      state.result = normalizeResultForUI(data);
+      if (els.logBox) {
+        els.logBox.innerHTML += "<p>Optimización terminada.</p>";
+      }
+      renderMonthTabs();
+      renderCalendarGrid();
+      renderDayDetail();
+      updateStats();
+      setResultsVisible(true);
+      if (els.globalStatus) {
+        els.globalStatus.textContent = `Optimización completada. Meses generados: ${state.result?.calendario_meses ? Object.keys(state.result.calendario_meses).length : 0}`;
+      }
+    }
+  } catch (err) {
+    if (err.name !== "AbortError") {
+      console.error("Run error:", err);
+      if (els.logBox) els.logBox.innerHTML += `<p style="color:red;">Error: ${err.message}</p>`;
+      if (els.globalStatus) {
+        els.globalStatus.textContent = `Error en la optimización: ${err.message}`;
+      }
+    }
+  }
+  state.running = false;
+  setRunningUi(false, state.stopRequested ? "Optimización detenida" : "Listo");
+  if (!state.stopRequested && !state.result) {
+    await fetchLastResult();
+  }
+}
+
+function updateProgressFromSSE(data) {
+  if (data.generacion !== undefined) {
+    if (els.generationLabel) els.generationLabel.textContent = `Gen: ${data.generacion}`;
+    if (els.progressFill && data.generaciones_totales) {
+      const pct = (data.generacion / data.generaciones_totales) * 100;
+      els.progressFill.style.width = `${pct}%`;
+    }
+  }
+  if (data.fitness !== undefined && els.fitnessLabel) {
+    els.fitnessLabel.textContent = `Fitness: ${data.fitness.toFixed(4)}`;
+  }
+  if (data.status) {
+    if (els.logBox) {
+      const p = document.createElement("p");
+      p.textContent = data.status;
+      els.logBox.appendChild(p);
+      els.logBox.scrollTop = els.logBox.scrollHeight;
+    }
+  }
+}
+
+async function stopAlgorithm() {
+  state.stopRequested = true;
+  if (state.runController) {
+    state.runController.abort();
+  }
+}
+
+async function fetchLastResult() {
+  try {
+    const resp = await fetch("/api/ultimo-resultado");
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    state.result = normalizeResultForUI(data);
+    if (state.result) {
+      setResultsVisible(true);
+    }
+    renderMonthTabs();
+    renderCalendarGrid();
+    renderDayDetail();
+    updateStats();
+    if (els.globalStatus) {
+      els.globalStatus.textContent = "Resultado cargado.";
+    }
+  } catch (err) {
+    console.error("Fetch result error:", err);
+    if (els.globalStatus) {
+      els.globalStatus.textContent = `Error: ${err.message}`;
+    }
+  }
+}
+
+function updateStats() {
+  if (!state.result?.calendario_meses) return;
+  let countH1 = 0, countH2 = 0;
+  for (const monthData of Object.values(state.result.calendario_meses)) {
+    const h1Cols = monthData?.castigos_hologramas?.H1?.colores || {};
+    const h2Cols = monthData?.castigos_hologramas?.H2?.colores || {};
+    for (const info of Object.values(h1Cols)) {
+      countH1 += info.total_sabados_castigados || 0;
+    }
+    for (const info of Object.values(h2Cols)) {
+      countH2 += info.total_sabados_castigados || 0;
+    }
+  }
+  if (els.statZona) els.statZona.textContent = `Zona: Total`;
+  if (els.statFitness) els.statFitness.textContent = `Fitness: ${Number(state.result?.mejor_fitness || 0).toFixed(4)}`;
+  if (els.statH1) els.statH1.textContent = `H1 Sáb: ${countH1}`;
+  if (els.statH2) els.statH2.textContent = `H2 Sáb: ${countH2}`;
+  if (els.statH00) els.statH00.textContent = `H00: Libre`;
+  if (els.fitnessLabel) els.fitnessLabel.textContent = `Mejor fitness: ${Number(state.result?.mejor_fitness || 0).toFixed(4)}`;
+}
+
+function resetDefaults() {
+  applyConfigToUI(state.defaults || FALLBACK_DEFAULTS);
+}
+
+function exportResult() {
+  if (!state.result) {
+    alert("No hay resultado para exportar.");
+    return;
+  }
+  const json = JSON.stringify(state.result, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = filename;
+  a.download = `hnc-resultado-${new Date().toISOString().split("T")[0]}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
-// ── RUN ───────────────────────────────────────────────────────────────────────
-async function runSimulation() {
-  if (state.running) return;
-  state.running = true;
-  state.stopRequested = false;
+function setupEventListeners() {
+  if (els.btnRun) els.btnRun.addEventListener("click", runAlgorithm);
+  if (els.btnStop) els.btnStop.addEventListener("click", stopAlgorithm);
+  if (els.btnResetDefaults) els.btnResetDefaults.addEventListener("click", resetDefaults);
+  if (els.btnExport) els.btnExport.addEventListener("click", exportResult);
+  if (els.imecaSlider) els.imecaSlider.addEventListener("input", () => syncClimateControls("imeca"));
+  if (els.pesoAmbiental) els.pesoAmbiental.addEventListener("input", () => syncClimateControls("weight"));
+  if (els.vehHolograma) els.vehHolograma.addEventListener("change", () => {
+    renderCalendarGrid();
+    renderDayDetail();
+  });
+  if (els.vehDigito) els.vehDigito.addEventListener("change", () => {
+    renderCalendarGrid();
+    renderDayDetail();
+  });
+}
 
-  if (els.btnRun) els.btnRun.disabled = true;
-  if (els.btnStop) els.btnStop.disabled = false;
-  if (els.logBox) els.logBox.textContent = "";
-  updateStatus("Ejecutando AG...");
-
+async function loadInitialConfig() {
   try {
-    if (isAdvancedModeActive()) {
-      const missingFiles = getMissingEtlSources();
-      if (missingFiles.length) {
-        const message = `Faltan fuentes ETL: ${missingFiles.join(", ")}`;
-        log(`✗ ${message}`);
-        updateStatus("Faltan fuentes ETL");
-        throw new Error(message);
-      }
+    const resp = await fetch("/api/config-inicial");
+    if (resp.ok) {
+      const data = await resp.json();
+      applyConfigToUI(data);
+    } else {
+      applyConfigToUI(FALLBACK_DEFAULTS);
     }
-
-    const params = getParams();
-    log("Iniciando optimización...");
-    log(`Parámetros: Pop=${params.pop_size}, Gen=${params.generaciones}, IMECA=${params.nivel_imeca}`);
-
-    const formData = new FormData();
-    formData.append("params", JSON.stringify(params));
-    if (state.files.eodSemana) {
-      const name = state.files.eodSemana.name.toLowerCase();
-      if (name.endsWith(".csv")) {
-        formData.append("eodEntreSemanaCsv", state.files.eodSemana);
-      } else {
-        formData.append("eodEntreSemanaXlsx", state.files.eodSemana);
-      }
-    }
-    if (state.files.eodSabado) formData.append("eodSabado", state.files.eodSabado);
-    if (state.files.vmrc) formData.append("vmrc", state.files.vmrc);
-    if (state.files.verificacion) formData.append("verificacion", state.files.verificacion);
-    if (state.files.contaminantes) formData.append("contaminantes", state.files.contaminantes);
-
-    const response = await fetch("/api/run", {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || `HTTP ${response.status}`);
-    }
-
-    const result = await response.json();
-    log("✓ Optimización completada");
-    log(`Mejor fitness: ${(result.mejor_fitness || 0).toFixed(6)}`);
-    let finalStatus = "Listo";
-    if (result.etl_regenerado) {
-      const fuentes = Array.isArray(result.fuentes_etl) && result.fuentes_etl.length
-        ? ` (${result.fuentes_etl.join(", ")})`
-        : "";
-      log(`✓ ETL regenerado con archivos subidos${fuentes}`);
-      finalStatus = "ETL regenerado y AG ejecutado";
-    }
-
-    renderResults(result);
-    updateStatus(finalStatus);
-  } catch (e) {
-    log(`✗ Error: ${e.message}`);
-    updateStatus("Error");
-  } finally {
-    state.running = false;
-    if (els.btnRun) els.btnRun.disabled = false;
-    if (els.btnStop) els.btnStop.disabled = true;
+  } catch (err) {
+    console.error("Error loading config:", err);
+    applyConfigToUI(FALLBACK_DEFAULTS);
   }
 }
 
-// ── AUTO-CARGA ÚLTIMO RESULTADO ───────────────────────────────────────────────
-async function cargarUltimoResultado() {
-  try {
-    const res = await fetch("/api/ultimo-resultado");
-    if (!res.ok) return;
-    const result = await res.json();
-    if (result) {
-      log("Resultado anterior cargado automáticamente");
-      renderResults(result);
-    }
-  } catch (e) {
-    // Silencioso
-  }
+async function init() {
+  initializeDOM();
+  setupEventListeners();
+  setResultsVisible(false);
+  await loadInitialConfig();
+  await fetchLastResult();
 }
 
-// ── BIND ALL ──────────────────────────────────────────────────────────────────
-function bindActions() {
-  if (els.btnRun) els.btnRun.addEventListener("click", runSimulation);
-  if (els.btnResetDefaults) {
-    els.btnResetDefaults.addEventListener("click", () => {
-      applyDefaultFormValues(state.defaults || FALLBACK_DEFAULTS);
-      log("Valores por defecto restaurados");
-    });
-  }
-  if (els.btnStop) {
-    els.btnStop.addEventListener("click", () => {
-      state.stopRequested = true;
-      els.btnStop.disabled = true;
-    });
-  }
-  if (els.btnExport) {
-    els.btnExport.addEventListener("click", () => {
-      if (state.result) {
-        downloadJson("resultado_ag_hnc.json", state.result);
-        log("Resultado exportado como JSON");
-      }
-    });
-  }
-  
-  if (els.btnPrevMonth) {
-    els.btnPrevMonth.addEventListener("click", () => {
-      if (state.monthIndex > 0) {
-        state.monthIndex--;
-        renderMonthTabs();
-        renderCalendarMonth();
-      }
-    });
-  }
-  if (els.btnNextMonth) {
-    els.btnNextMonth.addEventListener("click", () => {
-      if (state.monthIndex < state.monthKeys.length - 1) {
-        state.monthIndex++;
-        renderMonthTabs();
-        renderCalendarMonth();
-      }
-    });
-  }
-}
-
-// ── INIT ──────────────────────────────────────────────────────────────────────
-bindFiles();
-fillDigitOptions();
-bindActions();
-bindModeTabs();
-refreshEnvSummary();
-loadInitialUI();
-
-console.log("🟢 Inicializando UI...");
-async function loadInitialUI() {
-  await cargarConfiguracionInicial();
-  if (els.imecaSlider) els.imecaSlider.addEventListener("input", syncImecaSlider);
-  if (els.vehHolograma) els.vehHolograma.addEventListener("change", renderCalendarMonth);
-  if (els.vehDigito) els.vehDigito.addEventListener("change", renderCalendarMonth);
-  if (els.viewMode) els.viewMode.addEventListener("change", renderCalendarMonth);
-  setTimeout(() => {
-    cargarUltimoResultado();
-  }, 500);
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
 }
