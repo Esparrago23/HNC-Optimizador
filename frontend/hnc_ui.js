@@ -290,6 +290,10 @@ function getMissingEtlSources() {
     .map(([key]) => labels[key] || key);
 }
 
+function isAdvancedModeActive() {
+  return !!(els.tabAdvanced && els.tabAdvanced.classList.contains("active"));
+}
+
 // ── PARAMS ────────────────────────────────────────────────────────────────────
 function getParams() {
   return {
@@ -655,12 +659,14 @@ async function runSimulation() {
   updateStatus("Ejecutando AG...");
 
   try {
-    const missingFiles = getMissingEtlSources();
-    if (missingFiles.length) {
-      const message = `Faltan fuentes ETL: ${missingFiles.join(", ")}`;
-      log(`✗ ${message}`);
-      updateStatus("Faltan fuentes ETL");
-      throw new Error(message);
+    if (isAdvancedModeActive()) {
+      const missingFiles = getMissingEtlSources();
+      if (missingFiles.length) {
+        const message = `Faltan fuentes ETL: ${missingFiles.join(", ")}`;
+        log(`✗ ${message}`);
+        updateStatus("Faltan fuentes ETL");
+        throw new Error(message);
+      }
     }
 
     const params = getParams();

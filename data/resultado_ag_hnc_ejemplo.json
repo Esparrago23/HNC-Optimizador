@@ -6,13 +6,17 @@
         "mutacion": 0.05,
         "elitismo": 2,
         "peso_equidad": 1,
-        "peso_ambiental_critico": 1.8,
+        "peso_ambiental_critico": 2.2,
         "peso_economico": 1.55,
         "nivel_imeca": 150,
         "start_month": "2026-04",
         "meses": 6
     },
-    "mejor_fitness": 0.890525,
+    "contexto_entorno": {
+        "factor_sabado": 0.479735,
+        "usa_entorno_etl": true
+    },
+    "mejor_fitness": 0.872324,
     "mejor_solucion": {
         "meses": [
             {
@@ -24,42 +28,6 @@
                 "h1": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "lunes",
-                            "sabados": [
-                                1,
-                                2
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total"
-                        },
-                        "Amarillo": {
-                            "dia_base": "martes",
-                            "sabados": [
-                                1,
-                                2
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total"
-                        },
-                        "Rosa": {
-                            "dia_base": "miercoles",
-                            "sabados": [
-                                1,
-                                2
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total"
-                        },
-                        "Rojo": {
                             "dia_base": "jueves",
                             "sabados": [
                                 1,
@@ -71,8 +39,44 @@
                             ],
                             "zona": "total"
                         },
-                        "Azul": {
+                        "Amarillo": {
                             "dia_base": "viernes",
+                            "sabados": [
+                                1,
+                                2
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total"
+                        },
+                        "Rosa": {
+                            "dia_base": "lunes",
+                            "sabados": [
+                                1,
+                                2
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total"
+                        },
+                        "Rojo": {
+                            "dia_base": "martes",
+                            "sabados": [
+                                1,
+                                2
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total"
+                        },
+                        "Azul": {
+                            "dia_base": "miercoles",
                             "sabados": [
                                 1,
                                 2
@@ -88,48 +92,6 @@
                 "h2": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "lunes",
-                            "sabados": [
-                                1,
-                                2,
-                                3,
-                                4
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total"
-                        },
-                        "Amarillo": {
-                            "dia_base": "martes",
-                            "sabados": [
-                                1,
-                                2,
-                                3,
-                                4
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total"
-                        },
-                        "Rosa": {
-                            "dia_base": "miercoles",
-                            "sabados": [
-                                1,
-                                2,
-                                3,
-                                4
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total"
-                        },
-                        "Rojo": {
                             "dia_base": "jueves",
                             "sabados": [
                                 1,
@@ -143,8 +105,50 @@
                             ],
                             "zona": "total"
                         },
-                        "Azul": {
+                        "Amarillo": {
                             "dia_base": "viernes",
+                            "sabados": [
+                                1,
+                                2,
+                                3,
+                                4
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total"
+                        },
+                        "Rosa": {
+                            "dia_base": "lunes",
+                            "sabados": [
+                                1,
+                                2,
+                                3,
+                                4
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total"
+                        },
+                        "Rojo": {
+                            "dia_base": "martes",
+                            "sabados": [
+                                1,
+                                2,
+                                3,
+                                4
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total"
+                        },
+                        "Azul": {
+                            "dia_base": "miercoles",
                             "sabados": [
                                 1,
                                 2,
@@ -169,7 +173,7 @@
                 "h1": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "lunes",
+                            "dia_base": "viernes",
                             "sabados": [
                                 1,
                                 2
@@ -193,7 +197,7 @@
                             "zona": "total"
                         },
                         "Rosa": {
-                            "dia_base": "miercoles",
+                            "dia_base": "lunes",
                             "sabados": [
                                 1,
                                 2
@@ -217,7 +221,7 @@
                             "zona": "total"
                         },
                         "Azul": {
-                            "dia_base": "viernes",
+                            "dia_base": "miercoles",
                             "sabados": [
                                 1,
                                 2
@@ -233,7 +237,7 @@
                 "h2": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "lunes",
+                            "dia_base": "viernes",
                             "sabados": [
                                 1,
                                 2,
@@ -247,8 +251,8 @@
                             ],
                             "zona": "total",
                             "extras": [
-                                "2026-05-05",
-                                "2026-05-12"
+                                "2026-05-04",
+                                "2026-05-11"
                             ]
                         },
                         "Amarillo": {
@@ -271,7 +275,7 @@
                             ]
                         },
                         "Rosa": {
-                            "dia_base": "miercoles",
+                            "dia_base": "lunes",
                             "sabados": [
                                 1,
                                 2,
@@ -285,8 +289,8 @@
                             ],
                             "zona": "total",
                             "extras": [
-                                "2026-05-07",
-                                "2026-05-14"
+                                "2026-05-05",
+                                "2026-05-12"
                             ]
                         },
                         "Rojo": {
@@ -309,7 +313,7 @@
                             ]
                         },
                         "Azul": {
-                            "dia_base": "viernes",
+                            "dia_base": "miercoles",
                             "sabados": [
                                 1,
                                 2,
@@ -323,8 +327,8 @@
                             ],
                             "zona": "total",
                             "extras": [
-                                "2026-05-04",
-                                "2026-05-11"
+                                "2026-05-07",
+                                "2026-05-14"
                             ]
                         }
                     }
@@ -351,18 +355,6 @@
                             "zona": "total"
                         },
                         "Amarillo": {
-                            "dia_base": "martes",
-                            "sabados": [
-                                1,
-                                2
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total"
-                        },
-                        "Rosa": {
                             "dia_base": "miercoles",
                             "sabados": [
                                 1,
@@ -374,8 +366,20 @@
                             ],
                             "zona": "total"
                         },
+                        "Rosa": {
+                            "dia_base": "martes",
+                            "sabados": [
+                                1,
+                                2
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total"
+                        },
                         "Rojo": {
-                            "dia_base": "jueves",
+                            "dia_base": "viernes",
                             "sabados": [
                                 1,
                                 2
@@ -387,7 +391,7 @@
                             "zona": "total"
                         },
                         "Azul": {
-                            "dia_base": "viernes",
+                            "dia_base": "jueves",
                             "sabados": [
                                 1,
                                 2
@@ -420,23 +424,6 @@
                             ]
                         },
                         "Amarillo": {
-                            "dia_base": "martes",
-                            "sabados": [
-                                1,
-                                2,
-                                3,
-                                4
-                            ],
-                            "horario": [
-                                5,
-                                22
-                            ],
-                            "zona": "total",
-                            "extras": [
-                                "2026-06-03"
-                            ]
-                        },
-                        "Rosa": {
                             "dia_base": "miercoles",
                             "sabados": [
                                 1,
@@ -453,8 +440,8 @@
                                 "2026-06-04"
                             ]
                         },
-                        "Rojo": {
-                            "dia_base": "jueves",
+                        "Rosa": {
+                            "dia_base": "martes",
                             "sabados": [
                                 1,
                                 2,
@@ -467,10 +454,10 @@
                             ],
                             "zona": "total",
                             "extras": [
-                                "2026-06-05"
+                                "2026-06-03"
                             ]
                         },
-                        "Azul": {
+                        "Rojo": {
                             "dia_base": "viernes",
                             "sabados": [
                                 1,
@@ -486,6 +473,23 @@
                             "extras": [
                                 "2026-06-01"
                             ]
+                        },
+                        "Azul": {
+                            "dia_base": "jueves",
+                            "sabados": [
+                                1,
+                                2,
+                                3,
+                                4
+                            ],
+                            "horario": [
+                                5,
+                                22
+                            ],
+                            "zona": "total",
+                            "extras": [
+                                "2026-06-05"
+                            ]
                         }
                     }
                 }
@@ -499,17 +503,6 @@
                 "h1": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "lunes",
-                            "sabados": [
-                                1
-                            ],
-                            "horario": [
-                                5,
-                                16
-                            ],
-                            "zona": "centro"
-                        },
-                        "Amarillo": {
                             "dia_base": "martes",
                             "sabados": [
                                 1
@@ -520,8 +513,8 @@
                             ],
                             "zona": "centro"
                         },
-                        "Rosa": {
-                            "dia_base": "miercoles",
+                        "Amarillo": {
+                            "dia_base": "viernes",
                             "sabados": [
                                 1
                             ],
@@ -531,7 +524,7 @@
                             ],
                             "zona": "centro"
                         },
-                        "Rojo": {
+                        "Rosa": {
                             "dia_base": "jueves",
                             "sabados": [
                                 1
@@ -542,8 +535,19 @@
                             ],
                             "zona": "centro"
                         },
+                        "Rojo": {
+                            "dia_base": "lunes",
+                            "sabados": [
+                                1
+                            ],
+                            "horario": [
+                                5,
+                                16
+                            ],
+                            "zona": "centro"
+                        },
                         "Azul": {
-                            "dia_base": "viernes",
+                            "dia_base": "miercoles",
                             "sabados": [
                                 1
                             ],
@@ -558,19 +562,6 @@
                 "h2": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "lunes",
-                            "sabados": [
-                                1,
-                                2,
-                                3
-                            ],
-                            "horario": [
-                                5,
-                                16
-                            ],
-                            "zona": "centro"
-                        },
-                        "Amarillo": {
                             "dia_base": "martes",
                             "sabados": [
                                 1,
@@ -583,8 +574,8 @@
                             ],
                             "zona": "centro"
                         },
-                        "Rosa": {
-                            "dia_base": "miercoles",
+                        "Amarillo": {
+                            "dia_base": "viernes",
                             "sabados": [
                                 1,
                                 2,
@@ -596,7 +587,7 @@
                             ],
                             "zona": "centro"
                         },
-                        "Rojo": {
+                        "Rosa": {
                             "dia_base": "jueves",
                             "sabados": [
                                 1,
@@ -609,8 +600,21 @@
                             ],
                             "zona": "centro"
                         },
+                        "Rojo": {
+                            "dia_base": "lunes",
+                            "sabados": [
+                                1,
+                                2,
+                                3
+                            ],
+                            "horario": [
+                                5,
+                                16
+                            ],
+                            "zona": "centro"
+                        },
                         "Azul": {
-                            "dia_base": "viernes",
+                            "dia_base": "miercoles",
                             "sabados": [
                                 1,
                                 2,
@@ -634,17 +638,6 @@
                 "h1": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "lunes",
-                            "sabados": [
-                                1
-                            ],
-                            "horario": [
-                                5,
-                                16
-                            ],
-                            "zona": "centro"
-                        },
-                        "Amarillo": {
                             "dia_base": "martes",
                             "sabados": [
                                 1
@@ -655,8 +648,19 @@
                             ],
                             "zona": "centro"
                         },
+                        "Amarillo": {
+                            "dia_base": "jueves",
+                            "sabados": [
+                                1
+                            ],
+                            "horario": [
+                                5,
+                                16
+                            ],
+                            "zona": "centro"
+                        },
                         "Rosa": {
-                            "dia_base": "miercoles",
+                            "dia_base": "lunes",
                             "sabados": [
                                 1
                             ],
@@ -667,7 +671,7 @@
                             "zona": "centro"
                         },
                         "Rojo": {
-                            "dia_base": "jueves",
+                            "dia_base": "miercoles",
                             "sabados": [
                                 1
                             ],
@@ -693,19 +697,6 @@
                 "h2": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "lunes",
-                            "sabados": [
-                                1,
-                                2,
-                                3
-                            ],
-                            "horario": [
-                                5,
-                                16
-                            ],
-                            "zona": "centro"
-                        },
-                        "Amarillo": {
                             "dia_base": "martes",
                             "sabados": [
                                 1,
@@ -718,8 +709,21 @@
                             ],
                             "zona": "centro"
                         },
+                        "Amarillo": {
+                            "dia_base": "jueves",
+                            "sabados": [
+                                1,
+                                2,
+                                3
+                            ],
+                            "horario": [
+                                5,
+                                16
+                            ],
+                            "zona": "centro"
+                        },
                         "Rosa": {
-                            "dia_base": "miercoles",
+                            "dia_base": "lunes",
                             "sabados": [
                                 1,
                                 2,
@@ -732,7 +736,7 @@
                             "zona": "centro"
                         },
                         "Rojo": {
-                            "dia_base": "jueves",
+                            "dia_base": "miercoles",
                             "sabados": [
                                 1,
                                 2,
@@ -769,7 +773,7 @@
                 "h1": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "lunes",
+                            "dia_base": "viernes",
                             "sabados": [
                                 1,
                                 2
@@ -781,7 +785,7 @@
                             "zona": "total"
                         },
                         "Amarillo": {
-                            "dia_base": "martes",
+                            "dia_base": "lunes",
                             "sabados": [
                                 1,
                                 2
@@ -817,7 +821,7 @@
                             "zona": "total"
                         },
                         "Azul": {
-                            "dia_base": "viernes",
+                            "dia_base": "martes",
                             "sabados": [
                                 1,
                                 2
@@ -833,7 +837,7 @@
                 "h2": {
                     "por_color": {
                         "Verde": {
-                            "dia_base": "lunes",
+                            "dia_base": "viernes",
                             "sabados": [
                                 1,
                                 2,
@@ -847,7 +851,7 @@
                             "zona": "total"
                         },
                         "Amarillo": {
-                            "dia_base": "martes",
+                            "dia_base": "lunes",
                             "sabados": [
                                 1,
                                 2,
@@ -889,7 +893,7 @@
                             "zona": "total"
                         },
                         "Azul": {
-                            "dia_base": "viernes",
+                            "dia_base": "martes",
                             "sabados": [
                                 1,
                                 2,
@@ -906,5 +910,7 @@
                 }
             }
         ]
-    }
+    },
+    "etl_regenerado": false,
+    "fuentes_etl": []
 }
