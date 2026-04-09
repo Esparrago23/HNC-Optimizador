@@ -1,0 +1,195 @@
+{
+    "vehiculos": {
+        "H00": {
+            "total": 478673,
+            "ef": 0.2,
+            "costo": 1.15,
+            "p_l": 0.311188
+        },
+        "H0": {
+            "total": 3930103,
+            "ef": 0.2,
+            "costo": 1.15,
+            "p_l": 0.300997
+        },
+        "H1": {
+            "total": 1368392,
+            "ef": 0.6474170108139815,
+            "costo": 1.0,
+            "p_l": 0.290806
+        },
+        "H2": {
+            "total": 732266,
+            "ef": 3.1230324388828263,
+            "costo": 0.85,
+            "p_l": 0.280615
+        }
+    },
+    "grupos_placa": {
+        "Amarillo": [
+            5,
+            6
+        ],
+        "Rosa": [
+            7,
+            8
+        ],
+        "Rojo": [
+            3,
+            4
+        ],
+        "Verde": [
+            1,
+            2
+        ],
+        "Azul": [
+            9,
+            0
+        ]
+    },
+    "distancia_promedio_km": 24.0,
+    "cumplimiento_ciudadano": 0.85,
+    "factores_zona": {
+        "Centro": 0.35,
+        "Periferia": 0.55,
+        "Total": 1.0
+    },
+    "trafico": {
+        "v_f": 45.0,
+        "capacidad_c": 3500000,
+        "alpha": 0.15,
+        "beta": 4.0
+    },
+    "equidad": {
+        "umbral_r_h2": 0.95,
+        "factor": 0.15
+    },
+    "probabilidad_laboral_horaria": {
+        "05:00-05:59": {
+            "probabilidad_laboral": 0.907802
+        },
+        "06:00-06:59": {
+            "probabilidad_laboral": 0.867125
+        },
+        "07:00-07:59": {
+            "probabilidad_laboral": 0.758021
+        },
+        "08:00-08:59": {
+            "probabilidad_laboral": 0.594744
+        },
+        "09:00-09:59": {
+            "probabilidad_laboral": 0.494193
+        },
+        "10:00-10:59": {
+            "probabilidad_laboral": 0.296405
+        },
+        "11:00-11:59": {
+            "probabilidad_laboral": 0.169868
+        },
+        "12:00-12:59": {
+            "probabilidad_laboral": 0.129828
+        },
+        "13:00-13:59": {
+            "probabilidad_laboral": 0.215064
+        },
+        "14:00-14:59": {
+            "probabilidad_laboral": 0.098091
+        },
+        "15:00-15:59": {
+            "probabilidad_laboral": 0.088404
+        },
+        "16:00-16:59": {
+            "probabilidad_laboral": 0.079484
+        },
+        "17:00-17:59": {
+            "probabilidad_laboral": 0.045002
+        },
+        "18:00-18:59": {
+            "probabilidad_laboral": 0.02253
+        },
+        "19:00-19:59": {
+            "probabilidad_laboral": 0.026569
+        },
+        "20:00-20:59": {
+            "probabilidad_laboral": 0.02576
+        },
+        "21:00-21:59": {
+            "probabilidad_laboral": 0.03209
+        }
+    },
+    "probabilidad_laboral_sabado_horaria": {
+        "05:00-05:59": {
+            "probabilidad_laboral": 0.886606
+        },
+        "06:00-06:59": {
+            "probabilidad_laboral": 0.822826
+        },
+        "07:00-07:59": {
+            "probabilidad_laboral": 0.746746
+        },
+        "08:00-08:59": {
+            "probabilidad_laboral": 0.600826
+        },
+        "09:00-09:59": {
+            "probabilidad_laboral": 0.360397
+        },
+        "10:00-10:59": {
+            "probabilidad_laboral": 0.175053
+        },
+        "11:00-11:59": {
+            "probabilidad_laboral": 0.088892
+        },
+        "12:00-12:59": {
+            "probabilidad_laboral": 0.074074
+        },
+        "13:00-13:59": {
+            "probabilidad_laboral": 0.066122
+        },
+        "14:00-14:59": {
+            "probabilidad_laboral": 0.049266
+        },
+        "15:00-15:59": {
+            "probabilidad_laboral": 0.038196
+        },
+        "16:00-16:59": {
+            "probabilidad_laboral": 0.038636
+        },
+        "17:00-17:59": {
+            "probabilidad_laboral": 0.031872
+        },
+        "18:00-18:59": {
+            "probabilidad_laboral": 0.024621
+        },
+        "19:00-19:59": {
+            "probabilidad_laboral": 0.024742
+        },
+        "20:00-20:59": {
+            "probabilidad_laboral": 0.023947
+        },
+        "21:00-21:59": {
+            "probabilidad_laboral": 0.024922
+        }
+    },
+    "ajustes_semanales": {
+        "Lunes": {
+            "factor_demanda": 0.9414,
+            "factor_probabilidad_laboral": 0.9707
+        },
+        "Martes": {
+            "factor_demanda": 1.0087,
+            "factor_probabilidad_laboral": 1.0044
+        },
+        "Miércoles": {
+            "factor_demanda": 1.0164,
+            "factor_probabilidad_laboral": 1.0082
+        },
+        "Jueves": {
+            "factor_demanda": 1.0186,
+            "factor_probabilidad_laboral": 1.0093
+        },
+        "Viernes": {
+            "factor_demanda": 1.0148,
+            "factor_probabilidad_laboral": 1.0074
+        }
+    }
+}

@@ -1,0 +1,9 @@
+.venv
+__pycache__/
+*.pyc
+*.pyo
+/2.Composición del Parque Vehicular/*.zip
+/2.Composición del Parque Vehicular/conjunto_de_datos_vmrc_anual_csv (1)/
+/2.Composición del Parque Vehicular/
+/3.Curvas de Demanda y Tráfico/
+/1.Factores de Emisión/*

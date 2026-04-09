@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HNC-Optimizador | Demo UI</title>
+  <link rel="stylesheet" href="hnc_ui.css" />
+</head>
+<body>
+  <header class="hero">
+    <div>
+      <h1>HNC-Optimizador</h1>
+      <p>Sistema de optimización dinámica del esquema "Hoy No Circula" — Motor evolutivo híbrido por bloques.</p>
+    </div>
+    <div class="status-pill" id="globalStatus">Listo para configurar</div>
+  </header>
+  <div class="server-note">Ejecuta <code>python backend/hnc_server.py</code> y abre <code>http://127.0.0.1:8000</code> para conectar el backend.</div>
+
+  <main class="layout">
+
+    <!-- ═══════════════════════ SECCIÓN 1 — ENTORNO ═══════════════════════ -->
+    <section class="card" id="escenario">
+      <h2>1) Entorno de Ciudad</h2>
+
+      <div class="mode-tabs">
+        <button class="mode-tab active" id="tabDemo" data-mode="demo">Modo Demo</button>
+        <button class="mode-tab" id="tabAdvanced" data-mode="advanced">Datos Crudos</button>
+      </div>
+
+      <!-- MODO DEMO -->
+      <div id="panelDemo">
+        <div class="demo-info-card">
+          <div class="demo-status-row">
+            <span id="demoStatusIcon">⏳</span>
+            <span id="demoStatusText">Verifica que el backend esté activo.</span>
+          </div>
+          <div id="demoVehicleSummary" class="demo-vehicle-grid hidden"></div>
+        </div>
+        <button class="ghost small-btn" id="btnVerificar" style="margin-top:8px">↻ Verificar datos</button>
+        <p class="small" style="margin-top:6px">El backend carga automáticamente <code>data/entorno_cdmx.json</code>. No necesitas subir archivos para correr el modelo.</p>
+      </div>
+
+      <!-- MODO AVANZADO -->
+      <div id="panelAdvanced" class="hidden">
+        <p class="adv-note small">Sube las fuentes reales del ETL. Al ejecutar el modelo, el backend usará esos archivos para regenerar <code>data/entorno_cdmx.json</code> antes de correr el AG.</p>
+        <div class="grid-2" style="margin-top:10px">
+          <label>EOD entre semana (XLSX o CSV)
+            <input type="file" id="fileEodSemana" accept=".xlsx,.csv" />
+          </label>
+          <label>EOD sábado (XLSX)
+            <input type="file" id="fileEodSabado" accept=".xlsx" />
+          </label>
+          <label>VMRC valor 09 (CSV)
+            <input type="file" id="fileVmrc" accept=".csv" />
+          </label>
+          <label>Verificación automotriz (CSV)
+            <input type="file" id="fileVerificacion" accept=".csv" />
+          </label>
+          <label>Contaminantes 2025 (CSV)
+            <input type="file" id="fileContaminantes" accept=".csv" />
+          </label>
+        </div>
+        <div class="small" id="envSummary" style="margin-top:8px">Sin fuentes ETL cargadas.</div>
+      </div>
+
+      <!-- Fechas — siempre visibles -->
+      <div class="grid-2" style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--line)">
+        <label>Inicio de proyección
+          <input type="month" id="startMonth" />
+        </label>
+        <label>Horizonte
+          <select id="horizonteMeses">
+            <option value="6">6 meses (semestral)</option>
+            <option value="3">3 meses</option>
+            <option value="12">12 meses</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════ SECCIÓN 2 — AJUSTES ═══════════════════════ -->
+    <section class="card" id="configuracion">
+      <h2>2) Ajustes del Modelo</h2>
+
+      <!-- IMECA SLIDER -->
+      <div class="imeca-block">
+        <div class="imeca-header">
+          <span class="imeca-label">Nivel IMECA — escenario de contaminación</span>
+          <span class="imeca-badge" id="imecaBadge" style="background:#ea580c">Mala — 151</span>
+        </div>
+        <input type="range" id="imecaSlider" min="0" max="400" step="5" value="151" class="imeca-slider" />
+        <div class="imeca-zones-bar">
+          <span style="background:#0284c7;color:#fff">Buena<br/><small>0–50</small></span>
+          <span style="background:#0d9488;color:#fff">Acept.<br/><small>51–100</small></span>
+          <span style="background:#ca8a04;color:#fff">Regular<br/><small>101–150</small></span>
+          <span style="background:#ea580c;color:#fff">Mala<br/><small>151–200</small></span>
+          <span style="background:#dc2626;color:#fff">Muy mala<br/><small>201–300</small></span>
+          <span style="background:#7c3aed;color:#fff">Extrema<br/><small>301+</small></span>
+        </div>
+        <p class="small" style="margin:6px 0 0">Simula distintos niveles de alerta. Actualiza el <em>peso ambiental crítico</em> del AG automáticamente.</p>
+      </div>
+
+      <div class="grid-3" style="margin-top:12px">
+        <label>Población inicial
+          <input type="number" id="popSize" min="20" max="2000" step="10" />
+        </label>
+        <label>Máx. generaciones
+          <input type="number" id="generaciones" min="10" max="2000" step="10" />
+        </label>
+        <label>Tasa mutación
+          <input type="number" id="mutacion" min="0" max="1" step="0.01" />
+        </label>
+        <label>Elitismo
+          <input type="number" id="elitismo" min="0" max="50" step="1" />
+        </label>
+        <label>Peso equidad social
+          <input type="number" id="pesoEquidad" min="0" max="5" step="0.05" />
+        </label>
+        <label>Peso ambiental crítico
+          <input type="number" id="pesoAmbiental" min="0.5" max="5" step="0.1" />
+        </label>
+        <label>Peso económico
+          <input type="number" id="pesoEconomico" min="0.2" max="5" step="0.05" />
+        </label>
+      </div>
+      <div class="actions" style="margin-top:12px">
+        <button class="ghost small-btn" id="btnResetDefaults" type="button">Restablecer valores por defecto</button>
+      </div>
+      <div class="small" style="margin-top:8px">Modelo híbrido: 6–10h fuerte · 10–16h ligera · 17–20h media · 20–22h mínima</div>
+    </section>
+
+    <!-- ═══════════════════════ SECCIÓN 3 — EJECUCIÓN ════════════════════ -->
+    <section class="card" id="ejecucion">
+      <h2>3) Ejecución y Monitoreo</h2>
+      <div class="actions">
+        <button id="btnRun" class="primary">Iniciar Optimización</button>
+        <button id="btnStop" class="ghost" disabled>Detener</button>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-labels">
+          <span id="generationLabel">Generación: 0 / 0</span>
+          <span id="fitnessLabel">Mejor fitness: —</span>
+        </div>
+        <div class="progress-bar"><div id="progressFill"></div></div>
+      </div>
+
+      <pre id="logBox" class="log" aria-live="polite"></pre>
+    </section>
+
+    <!-- ═══════════════════════ SECCIÓN 4 — RESULTADOS ═══════════════════ -->
+    <section class="card" id="resultados">
+      <h2>4) Calendario Oficial Óptimo</h2>
+      <div class="actions">
+        <button id="btnExport" class="primary" disabled>Exportar Dictamen</button>
+      </div>
+
+      <!-- Stats strip -->
+      <div id="statsStrip" class="stats-strip hidden">
+        <div class="stat-item">
+          <span class="stat-label">Zona óptima</span>
+          <span class="stat-value" id="statZona">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Mejor fitness</span>
+          <span class="stat-value" id="statFitness">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Restricción H1</span>
+          <span class="stat-value" id="statH1">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Restricción H2</span>
+          <span class="stat-value" id="statH2">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Restricción H00</span>
+          <span class="stat-value" id="statH00">—</span>
+        </div>
+      </div>
+
+      <!-- Hybrid summary -->
+      <div id="hybridSummary" class="hybrid-summary hidden"></div>
+
+      <!-- Calendar filters -->
+      <div class="grid-3 calendar-filters">
+        <label>Holograma
+          <select id="vehHolograma">
+            <option value="H00">Holograma 00</option>
+            <option value="H0">Holograma 0</option>
+            <option value="H1" selected>Holograma 1</option>
+            <option value="H2">Holograma 2</option>
+          </select>
+        </label>
+        <label>Último dígito de placa
+          <select id="vehDigito"></select>
+        </label>
+        <label>Vista
+          <select id="viewMode">
+            <option value="no-circula" selected>No circula (resaltado)</option>
+            <option value="all">Todos los días</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="calendarPanel" class="calendar-panel hidden">
+        <div class="cal-head">
+          <button id="btnPrevMonth" class="ghost nav-btn" aria-label="Mes anterior">&#x2039;</button>
+          <h3 id="calendarTitle">—</h3>
+          <button id="btnNextMonth" class="ghost nav-btn" aria-label="Mes siguiente">&#x203A;</button>
+        </div>
+
+        <div id="monthTabsWrap" class="month-tabs-wrap"></div>
+
+        <div class="calendar-grid" id="calendarGrid"></div>
+
+        <div class="legend">
+          <span><i class="dot blocked"></i>No circula</span>
+          <span><i class="dot allowed"></i>Circula libre</span>
+          <span><i class="dot contingency"></i>Contingencia</span>
+          <span><i class="dot" style="background:#6366f1"></i>Punto = dígito restringido</span>
+        </div>
+
+        <div id="dayDetail" class="day-detail">Selecciona un día para ver el detalle.</div>
+      </div>
+
+      <div id="resultsContainer" class="results-empty">Ejecuta el modelo para ver el calendario óptimo.</div>
+    </section>
+  </main>
+
+  <script src="hnc_ui.js"></script>
+</body>
+</html>
