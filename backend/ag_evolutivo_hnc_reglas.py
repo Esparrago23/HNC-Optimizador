@@ -212,4 +212,13 @@ Nivel 3: Todos los sábados del mes (sean 4 o 5).
 Nivel 4: Todos los sábados + 1 día extra entre semana.
 
 Nivel 5: Todos los sábados + 2 días extra entre semana.
+
+
+
+Buena pregunta. Sí, definitivamente deberían ser dinámicos y sí, la misma lógica aplica:
+
+Baja contaminación → [5,16] y "centro" (menos horas, menos zona)
+Alta contaminación → [5,22] y "total" (máximas horas, toda la ciudad)
+
+El cromosoma ya tiene los genes para esto (4, 5, 6, 7). El problema es que la funcion_objetivo no los toma en cuenta — solo evalúa sábados y extras. La solución es incorporar zona y horario como factores de cobertura efectiva que escalan el beneficio ambiental y el costo económico.
 """

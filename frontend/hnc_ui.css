@@ -110,7 +110,7 @@ button.ghost { background:#fff; }
 .imeca-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px; }
 .imeca-label { font-size:0.9rem; font-weight:600; }
 .imeca-badge { border-radius:999px; padding:4px 12px; font-size:0.82rem; font-weight:700; color:#fff; white-space:nowrap; flex-shrink:0; }
-.imeca-slider { -webkit-appearance:none; appearance:none; width:100%; height:8px; border-radius:999px; outline:none; cursor:pointer; background:linear-gradient(to right,#0284c7 0%,#0284c7 12.5%,#0d9488 12.5%,#0d9488 25%,#ca8a04 25%,#ca8a04 37.5%,#ea580c 37.5%,#ea580c 50%,#dc2626 50%,#dc2626 75%,#7c3aed 75%,#7c3aed 100%); border:1px solid var(--line); margin-bottom:8px; }
+.imeca-slider { -webkit-appearance:none; appearance:none; width:100%; height:8px; border-radius:999px; outline:none; cursor:pointer; background:linear-gradient(to right,#16a34a 0%,#16a34a 12.5%,#eab308 12.5%,#eab308 25%,#f97316 25%,#f97316 37.5%,#dc2626 37.5%,#dc2626 50%,#8b5cf6 50%,#8b5cf6 100%); border:1px solid var(--line); margin-bottom:8px; }
 .imeca-slider::-webkit-slider-thumb { -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:#fff; border:3px solid #334155; cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,0.25); }
 .imeca-slider::-moz-range-thumb { width:22px; height:22px; border-radius:50%; background:#fff; border:3px solid #334155; cursor:pointer; }
 .imeca-zones-bar { display:flex; border-radius:6px; overflow:hidden; font-size:0.7rem; text-align:center; margin-bottom:4px; }

@@ -75,11 +75,16 @@ def config_inicial() -> Any:
 @app.post("/api/run")
 def run_model() -> Any:
     """Ejecuta el AG y retorna el JSON final en formato oficial."""
-    params_raw = request.form.get("params", "{}")
+    payload = request.get_json(silent=True) or {}
+    params_raw = request.form.get("params")
+    if params_raw is None:
+        params_raw = json.dumps(payload.get("params", {}))
     try:
         params = json.loads(params_raw)
     except json.JSONDecodeError as exc:
         return jsonify({"error": f"Parámetros inválidos: {exc}"}), 400
+
+    datos_entrada = payload.get("datos_entrada", {}) if isinstance(payload, dict) else {}
 
     try:
         etl_regenerado = False
@@ -92,6 +97,13 @@ def run_model() -> Any:
             vmrc = request.files.get("vmrc")
             verificacion = request.files.get("verificacion")
             contaminantes = request.files.get("contaminantes")
+
+            if not request.files and datos_entrada:
+                eod_csv = datos_entrada.get("eod_semana") or eod_csv
+                eod_sabado = datos_entrada.get("eod_sabado") or eod_sabado
+                vmrc = datos_entrada.get("vmrc") or vmrc
+                verificacion = datos_entrada.get("verificacion") or verificacion
+                contaminantes = datos_entrada.get("contaminantes") or contaminantes
 
             eod_csv_path = _guardar_subida(eod_csv, temp_path / "eod_entre_semana.csv") if eod_csv and eod_csv.filename else None
             eod_xlsx_path = _guardar_subida(eod_xlsx, temp_path / "eod_entre_semana.xlsx") if eod_xlsx and eod_xlsx.filename else None
