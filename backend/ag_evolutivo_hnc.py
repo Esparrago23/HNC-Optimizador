@@ -38,27 +38,35 @@ CONTAMINATION_FACTORS: Dict[str, float] = {
 }
 
 # ── Límites de política por nivel ────────────────────────────────────────────
-# El AG decide los valores numéricos DENTRO de estos rangos.
-# La función de fitness lo guía hacia los valores óptimos para cada nivel.
+# El AG decide DENTRO de estos rangos; la fitness function lo guía.
+#
+# Zona y horario para H1 y H2 son decididos libremente por el AG en todas
+# las combinaciones válidas:  (total|centro) × (5-22|5-16)
+# La fitness los pondera vía cov_h1 / cov_h2_avg — mayor contaminación →
+# mayor cobertura premiada → el AG converge a total+5-22.
 #
 # Campos:
-#   h1_hora, h1_zona, h2_total : estructurales, siempre fijos
-#   h0_wd_max                  : máximo días de H0 por semana
-#   h1_sab  (min, max)         : rango de sábados H1  — None = total_sab
-#   h2_sab_max                 : techo de sábados H2  — None = total_sab
-#   extras  (min, max)         : rango de días extra en H2 (máx absoluto = 2)
+#   h2_total   : True solo en extrema (restriccion_total estructural)
+#   h0_wd_max  : máximo días de restricción semanal para H0
+#   h1_sab     : (min, max) sábados H1  —  None = total_sab
+#   h2_sab_max : techo de sábados H2    —  None = total_sab
+#   extras     : (min, max) días extra en H2  (máx absoluto = 2)
 _CCONFIG: Dict[str, Any] = {
-    "buena":    {"h1_hora":16, "h1_zona":"total", "h2_total":False, "h0_wd_max":0,
+    "buena":    {"h2_total":False, "h0_wd_max":0,
                  "h1_sab":(0, 1),    "h2_sab_max":3,    "extras":(0, 0)},
-    "aceptable":{"h1_hora":22, "h1_zona":"total", "h2_total":False, "h0_wd_max":0,
+    "aceptable":{"h2_total":False, "h0_wd_max":0,
                  "h1_sab":(0, 2),    "h2_sab_max":3,    "extras":(0, 0)},
-    "mala":     {"h1_hora":22, "h1_zona":"total", "h2_total":False, "h0_wd_max":0,
+    "mala":     {"h2_total":False, "h0_wd_max":0,
                  "h1_sab":(3, None), "h2_sab_max":None, "extras":(0, 2)},
-    "muy_mala": {"h1_hora":22, "h1_zona":"total", "h2_total":False, "h0_wd_max":1,
+    "muy_mala": {"h2_total":False, "h0_wd_max":1,
                  "h1_sab":(3, None), "h2_sab_max":None, "extras":(1, 2)},
-    "extrema":  {"h1_hora":22, "h1_zona":"total", "h2_total":True,  "h0_wd_max":2,
+    "extrema":  {"h2_total":True,  "h0_wd_max":2,
                  "h1_sab":(3, None), "h2_sab_max":None, "extras":(1, 2)},
 }
+
+def _to_lower_zona(raw: Any) -> str:
+    """Normaliza zona a minúsculas ('total' | 'centro')."""
+    return "centro" if "entro" in str(raw) else "total"
 
 PROJECT_ROOT   = Path(__file__).resolve().parent.parent
 ENTORNO_PATH   = PROJECT_ROOT / "data" / "entorno_cdmx.json"
@@ -218,23 +226,22 @@ def construir_reglas_mes(
     ts  = total_saturdays(year, month)
     cfg = _CCONFIG.get(contaminacion, _CCONFIG["extrema"])
 
-    # Valores estructurales fijos por nivel
-    h1_hora  = cfg["h1_hora"]
-    h1_zona  = cfg["h1_zona"]
-    h2_total = cfg["h2_total"]
+    # Valores estructurales fijos
+    h2_total  = cfg["h2_total"]
     h0_wd_max = cfg["h0_wd_max"]
 
-    # Calcular topes reales usando total_sab del mes
+    # Topes numéricos del nivel
     h1_min, h1_max_cfg = cfg["h1_sab"]
     h1_max = ts if h1_max_cfg is None else min(ts, h1_max_cfg)
     h2_max = ts if cfg["h2_sab_max"] is None else min(ts, cfg["h2_sab_max"])
     ex_min, ex_max = cfg["extras"]
 
-    # El AG decide dentro de los rangos; sin AG se usan los máximos del nivel
+    # ── Decisiones del AG ────────────────────────────────────────────────────
+    # Números: sábados, extras, días H0
     if ag_decisions:
-        ag_h1 = int(ag_decisions.get("sabados_h1",      h1_max))
-        ag_h2 = int(ag_decisions.get("sabados_h2",      h2_max))
-        ag_ex = int(ag_decisions.get("dias_extra_h2",   ex_max))
+        ag_h1 = int(ag_decisions.get("sabados_h1",       h1_max))
+        ag_h2 = int(ag_decisions.get("sabados_h2",       h2_max))
+        ag_ex = int(ag_decisions.get("dias_extra_h2",    ex_max))
         ag_h0 = int(ag_decisions.get("h0_weekday_count", h0_wd_max))
     else:
         ag_h1, ag_h2, ag_ex, ag_h0 = h1_max, h2_max, ex_max, h0_wd_max
@@ -243,6 +250,19 @@ def construir_reglas_mes(
     h2_sab           = max(3,      min(h2_max, ag_h2))
     extras_per_color = max(ex_min, min(ex_max, ag_ex))
     h0_weekday_count = min(h0_wd_max, h0_limits_from_imeca(nivel_imeca)[0], ag_h0)
+
+    # Zona y horario: el AG elige entre las 4 combinaciones válidas
+    #   H1  → una zona y un horario uniformes para todos los colores
+    #   H2  → por color (el AG puede diferenciar)
+    #   H0/H00 → siempre total + 5-22 (contingencias, no se suavizan)
+    if ag_decisions:
+        h1_hora = int(ag_decisions.get("hora_fin_h1", 22))
+        h1_zona = _to_lower_zona(ag_decisions.get("zona_h1", "Total"))
+        h2_hora_map: Dict[str, int] = ag_decisions.get("h2_hora_por_color", {})
+        h2_zona_map: Dict[str, str] = ag_decisions.get("h2_zona_por_color", {})
+    else:
+        h1_hora, h1_zona = 22, "total"
+        h2_hora_map, h2_zona_map = {}, {}
 
     h00_por_color: Dict[str, Any] = {}
     h0_por_color:  Dict[str, Any] = {}
@@ -258,22 +278,29 @@ def construir_reglas_mes(
                                          salt=color_month_salt(year, month, f"h0-{color}"),
                                          phase_bias=bias)
 
-        # H00 siempre limpio — sin fechas_restriccion
+        # H00 siempre limpio y sin restricción de horario/zona variable
         h00_por_color[color] = {"dia_base": dia, "horario": [5, 22], "zona": "total",
                                  "fechas_restriccion": [], "sabados": []}
+        # H0: contingencia — siempre total + 5-22
         h0_por_color[color]  = {"dia_base": dia, "horario": [5, 22], "zona": "total",
                                  "fechas_restriccion": h0_dates, "sabados": []}
+        # H1: zona y hora decididas por el AG (uniforme para todos los colores)
         h1_por_color[color]  = {"dia_base": dia, "sabados": sat_list(ts, h1_sab),
                                  "horario": [5, h1_hora], "zona": h1_zona}
 
+        # H2: zona y hora decididas por el AG por color
+        h2_hora_c = h2_hora_map.get(color, 22)
+        h2_zona_c = _to_lower_zona(h2_zona_map.get(color, "Total"))
         h2_item: Dict[str, Any] = {"dia_base": dia, "sabados": sat_list(ts, h2_sab),
-                                    "horario": [5, 22], "zona": "total"}
+                                    "horario": [5, h2_hora_c], "zona": h2_zona_c}
         if h2_total:
-            # restriccion_total cubre el patrón completo; fechas_restriccion
-            # solo se agrega si hay "extras" (máx 2 días adicionales).
+            # restriccion_total → siempre total + 5-22 (define "restricción total")
+            # fechas_restriccion solo aparece si hay extras (máx 2 días adicionales)
             h2_item.update({
                 "restriccion_total": True,
                 "sabados": sat_list(ts, ts),
+                "horario": [5, 22],
+                "zona":    "total",
             })
         if extras_per_color > 0:
             # fechas_restriccion = los días extra fuera del patrón base (máx 2)
