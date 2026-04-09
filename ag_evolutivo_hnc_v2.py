@@ -1,4 +1,4 @@
-﻿import json
+import json
 import itertools
 import math
 import random
