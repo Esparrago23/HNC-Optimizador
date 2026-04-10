@@ -53,20 +53,77 @@ CONTAMINATION_FACTORS: Dict[str, float] = {
 #   extras     : (min, max) días extra en H2  (máx absoluto = 2)
 _CCONFIG: Dict[str, Any] = {
     "buena":    {"h2_total":False, "h0_wd_max":0,
-                 "h1_sab":(0, 1),    "h2_sab_max":3,    "extras":(0, 0)},
+                 "h1_sab":(0, 1),    "h2_sab_max":3,    "extras":(0, 0),
+                 "h1_light_max":2,   "h2_light_max":3},
     "aceptable":{"h2_total":False, "h0_wd_max":0,
-                 "h1_sab":(0, 2),    "h2_sab_max":3,    "extras":(0, 0)},
+                 "h1_sab":(0, 2),    "h2_sab_max":3,    "extras":(0, 0),
+                 "h1_light_max":2,   "h2_light_max":3},
     "mala":     {"h2_total":False, "h0_wd_max":0,
-                 "h1_sab":(3, None), "h2_sab_max":None, "extras":(0, 2)},
+                 "h1_sab":(3, None), "h2_sab_max":None, "extras":(0, 2),
+                 "h1_light_max":1,   "h2_light_max":2},
     "muy_mala": {"h2_total":False, "h0_wd_max":1,
-                 "h1_sab":(3, None), "h2_sab_max":None, "extras":(1, 2)},
+                 "h1_sab":(3, None), "h2_sab_max":None, "extras":(1, 2),
+                 "h1_light_max":1,   "h2_light_max":1},
     "extrema":  {"h2_total":True,  "h0_wd_max":2,
-                 "h1_sab":(3, None), "h2_sab_max":None, "extras":(1, 2)},
+                 "h1_sab":(3, None), "h2_sab_max":None, "extras":(1, 2),
+                 "h1_light_max":0,   "h2_light_max":0},
 }
 
 def _to_lower_zona(raw: Any) -> str:
     """Normaliza zona a minúsculas ('total' | 'centro')."""
     return "centro" if "entro" in str(raw) else "total"
+
+def _rotate_colors(colors: List[str], shift: int) -> List[str]:
+    if not colors:
+        return []
+    k = shift % len(colors)
+    return colors[k:] + colors[:k]
+
+def contamination_from_factor(factor_mensual: float) -> str:
+    return min(CONTAMINATION_FACTORS, key=lambda c: abs(CONTAMINATION_FACTORS[c] - float(factor_mensual)))
+
+def _normalizar_decisiones_ligeras(contaminacion: str, decisiones_ag: Dict[str, Any]) -> Dict[str, Any]:
+    cfg = _CCONFIG.get(contaminacion, _CCONFIG["extrema"])
+    h1_cap = int(cfg.get("h1_light_max", 0))
+    h2_cap = int(cfg.get("h2_light_max", 0))
+
+    def clean_order(raw: Any) -> List[str]:
+        if not isinstance(raw, list):
+            return COLOR_ORDER[:]
+        cleaned = [c for c in raw if c in COLOR_ORDER]
+        return cleaned if len(cleaned) == len(COLOR_ORDER) else COLOR_ORDER[:]
+
+    order_h1 = clean_order(decisiones_ag.get("orden_prioridad_ligero_h1", COLOR_ORDER))
+    order_h2 = clean_order(decisiones_ag.get("orden_prioridad_ligero_h2", COLOR_ORDER))
+
+    req_h1 = max(0, min(5, int(decisiones_ag.get("n_light_h1", 0))))
+    req_h2 = max(0, min(5, int(decisiones_ag.get("n_light_h2", 0))))
+    allow_h1 = min(h1_cap, req_h1)
+    allow_h2 = min(h2_cap, req_h2)
+
+    h1_light = set(order_h1[:allow_h1])
+    h2_light = set(order_h2[:allow_h2])
+
+    h1_hora_por_color = {c: (16 if c in h1_light else 22) for c in COLOR_ORDER}
+    h1_zona_por_color = {c: ("Centro" if c in h1_light else "Total") for c in COLOR_ORDER}
+    h2_hora_por_color = {c: (16 if c in h2_light else 22) for c in COLOR_ORDER}
+    h2_zona_por_color = {c: ("Centro" if c in h2_light else "Total") for c in COLOR_ORDER}
+
+    return {
+        "h1_hora_por_color": h1_hora_por_color,
+        "h1_zona_por_color": h1_zona_por_color,
+        "h2_hora_por_color": h2_hora_por_color,
+        "h2_zona_por_color": h2_zona_por_color,
+        "n_light_h1_real": allow_h1,
+        "n_light_h2_real": allow_h2,
+    }
+
+def _coverage_promedio(hora_por_color: Dict[str, int], zona_por_color: Dict[str, str]) -> float:
+    return sum(
+        (1.0 if _to_lower_zona(zona_por_color.get(c, "Total")) == "total" else 0.5) *
+        (1.0 if int(hora_por_color.get(c, 22)) == 22 else 11.0 / 17.0)
+        for c in COLOR_ORDER
+    ) / float(len(COLOR_ORDER))
 
 PROJECT_ROOT   = Path(__file__).resolve().parent.parent
 ENTORNO_PATH   = PROJECT_ROOT / "data" / "entorno_cdmx.json"
@@ -251,18 +308,19 @@ def construir_reglas_mes(
     extras_per_color = max(ex_min, min(ex_max, ag_ex))
     h0_weekday_count = min(h0_wd_max, h0_limits_from_imeca(nivel_imeca)[0], ag_h0)
 
-    # Zona y horario: el AG elige entre las 4 combinaciones válidas
-    #   H1  → una zona y un horario uniformes para todos los colores
-    #   H2  → por color (el AG puede diferenciar)
+    # Zona y horario: H1 y H2 por color, con límites de "ligeros" por nivel.
     #   H0/H00 → siempre total + 5-22 (contingencias, no se suavizan)
     if ag_decisions:
-        h1_hora = int(ag_decisions.get("hora_fin_h1", 22))
-        h1_zona = _to_lower_zona(ag_decisions.get("zona_h1", "Total"))
-        h2_hora_map: Dict[str, int] = ag_decisions.get("h2_hora_por_color", {})
-        h2_zona_map: Dict[str, str] = ag_decisions.get("h2_zona_por_color", {})
+        norm_light = _normalizar_decisiones_ligeras(contaminacion, ag_decisions)
+        h1_hora_map: Dict[str, int] = norm_light["h1_hora_por_color"]
+        h1_zona_map: Dict[str, str] = norm_light["h1_zona_por_color"]
+        h2_hora_map: Dict[str, int] = norm_light["h2_hora_por_color"]
+        h2_zona_map: Dict[str, str] = norm_light["h2_zona_por_color"]
     else:
-        h1_hora, h1_zona = 22, "total"
-        h2_hora_map, h2_zona_map = {}, {}
+        h1_hora_map = {c: 22 for c in COLOR_ORDER}
+        h1_zona_map = {c: "Total" for c in COLOR_ORDER}
+        h2_hora_map = {c: 22 for c in COLOR_ORDER}
+        h2_zona_map = {c: "Total" for c in COLOR_ORDER}
 
     h00_por_color: Dict[str, Any] = {}
     h0_por_color:  Dict[str, Any] = {}
@@ -284,11 +342,12 @@ def construir_reglas_mes(
         # H0: contingencia — siempre total + 5-22
         h0_por_color[color]  = {"dia_base": dia, "horario": [5, 22], "zona": "total",
                                  "fechas_restriccion": h0_dates, "sabados": []}
-        # H1: zona y hora decididas por el AG (uniforme para todos los colores)
+        # H1: zona y hora decididas por el AG por color (con topes por nivel)
         h1_por_color[color]  = {"dia_base": dia, "sabados": sat_list(ts, h1_sab),
-                                 "horario": [5, h1_hora], "zona": h1_zona}
+                     "horario": [5, int(h1_hora_map.get(color, 22))],
+                     "zona": _to_lower_zona(h1_zona_map.get(color, "Total"))}
 
-        # H2: zona y hora decididas por el AG por color
+        # H2: zona y hora decididas por el AG por color (con topes por nivel)
         h2_hora_c = h2_hora_map.get(color, 22)
         h2_zona_c = _to_lower_zona(h2_zona_map.get(color, "Total"))
         h2_item: Dict[str, Any] = {"dia_base": dia, "sabados": sat_list(ts, h2_sab),
@@ -364,10 +423,10 @@ def decodificar_individuo(
     r_h00, r_h0, r_h1, r_h2 = sorted(float(g) for g in individuo[0:4])
     ts = total_sabados_mes
 
-    hora_fin_h1   = 16 if individuo[4] > 0.85 else 22
-    n_16h_h2      = min(5, int(individuo[5] * 6))
-    zona_h1       = "Centro" if individuo[6] > 0.82 else "Total"
-    n_cen_h2      = min(5, int(individuo[7] * 6))
+    n_light_h1    = min(5, int(individuo[4] * 6))
+    n_light_h2    = min(5, int(individuo[5] * 6))
+    phase_h1      = min(4, int(individuo[6] * 5))
+    phase_h2      = min(4, int(individuo[7] * 5))
     sabados_h1    = min(ts, int(individuo[8] * (ts + 1)))
     rango_h2      = max(0, ts - 3)
     sabados_h2    = max(3, min(ts, 3 + min(rango_h2, int(individuo[9] * (rango_h2 + 1)))))
@@ -384,15 +443,17 @@ def decodificar_individuo(
     repetidos           = len(propuesta.values()) - len(set(propuesta.values()))
     asignacion_reparada = reparar_asignacion_colores_dias(propuesta)
 
-    colors_asc        = [c for c, _ in sorted([(COLOR_ORDER[i], individuo[11 + i]) for i in range(5)], key=lambda x: x[1])]
-    h2_hora_por_color = {c: (16 if i < n_16h_h2 else 22)          for i, c in enumerate(colors_asc)}
-    h2_zona_por_color = {c: ("Centro" if i < n_cen_h2 else "Total") for i, c in enumerate(colors_asc)}
+    colors_asc = [c for c, _ in sorted([(COLOR_ORDER[i], individuo[11 + i]) for i in range(5)], key=lambda x: x[1])]
+    prio_h1    = _rotate_colors(colors_asc, phase_h1)
+    prio_h2    = _rotate_colors(colors_asc, phase_h2)
 
-    cov_h2_avg = sum(
-        (1.0 if h2_zona_por_color[c] == "Total" else 0.5) *
-        (1.0 if h2_hora_por_color[c] == 22 else 11.0 / 17.0)
-        for c in COLOR_ORDER
-    ) / 5.0
+    h1_hora_por_color = {c: (16 if i < n_light_h1 else 22) for i, c in enumerate(prio_h1)}
+    h1_zona_por_color = {c: ("Centro" if i < n_light_h1 else "Total") for i, c in enumerate(prio_h1)}
+    h2_hora_por_color = {c: (16 if i < n_light_h2 else 22) for i, c in enumerate(prio_h2)}
+    h2_zona_por_color = {c: ("Centro" if i < n_light_h2 else "Total") for i, c in enumerate(prio_h2)}
+
+    cov_h1_avg = _coverage_promedio(h1_hora_por_color, h1_zona_por_color)
+    cov_h2_avg = _coverage_promedio(h2_hora_por_color, h2_zona_por_color)
 
     return {
         "R_H00": r_h00, "R_H0": r_h0, "R_H1": r_h1, "R_H2": r_h2,
@@ -402,15 +463,24 @@ def decodificar_individuo(
         "h2_hora_por_color": h2_hora_por_color,
         "h2_zona_por_color": h2_zona_por_color,
         "cov_h2_avg":        cov_h2_avg,
+        "h1_hora_por_color": h1_hora_por_color,
+        "h1_zona_por_color": h1_zona_por_color,
+        "cov_h1_avg":        cov_h1_avg,
         "decisiones_ag": {
-            "hora_fin_h1": hora_fin_h1, "zona_h1": zona_h1,
+            "hora_fin_h1": 16 if n_light_h1 >= 3 else 22,
+            "zona_h1": "Centro" if n_light_h1 >= 3 else "Total",
             "sabados_h1": sabados_h1, "sabados_h2": sabados_h2,
             "dias_extra_h2": dias_extra_h2,
             "h0_weekday_count": h0_weekday_count, "h0_saturday_count": h0_saturday_count,
             "h0_weekday_max": h0_wd_max, "h0_saturday_max": h0_sat_max,
+            "h1_hora_por_color": h1_hora_por_color,
+            "h1_zona_por_color": h1_zona_por_color,
             "h2_hora_por_color": h2_hora_por_color,
             "h2_zona_por_color": h2_zona_por_color,
-            "n_16h_h2": n_16h_h2, "n_cen_h2": n_cen_h2,
+            "n_light_h1": n_light_h1, "n_light_h2": n_light_h2,
+            "orden_prioridad_ligero_h1": prio_h1,
+            "orden_prioridad_ligero_h2": prio_h2,
+            "phase_h1": phase_h1, "phase_h2": phase_h2,
         },
     }
 
@@ -434,6 +504,8 @@ def funcion_objetivo(
     """
     sol  = decodificar_individuo(individuo, total_sabados, nivel_imeca)
     d_ag = sol["decisiones_ag"]
+    contaminacion = contamination_from_factor(factor_mensual)
+    norm_light = _normalizar_decisiones_ligeras(contaminacion, d_ag)
 
     sab_h1, sab_h2, extras = d_ag["sabados_h1"], d_ag["sabados_h2"], d_ag["dias_extra_h2"]
     h0_weekdays  = d_ag.get("h0_weekday_count", 0)
@@ -441,10 +513,8 @@ def funcion_objetivo(
     h0_wd_max    = max(1, d_ag.get("h0_weekday_max", 0))
     h0_sat_max   = max(1, d_ag.get("h0_saturday_max", 0))
 
-    zf_h1  = 1.0 if "otal" in str(d_ag.get("zona_h1", "Total")) else 0.5
-    hf_h1  = 1.0 if int(d_ag.get("hora_fin_h1", 22)) == 22 else 11.0 / 17.0
-    cov_h1 = zf_h1 * hf_h1
-    cov_h2 = sol.get("cov_h2_avg", 1.0)
+    cov_h1 = _coverage_promedio(norm_light["h1_hora_por_color"], norm_light["h1_zona_por_color"])
+    cov_h2 = _coverage_promedio(norm_light["h2_hora_por_color"], norm_light["h2_zona_por_color"])
 
     h2_extra_sats = sab_h2 - 3
     h2_max_extra  = max(1, total_sabados - 3)
@@ -540,14 +610,29 @@ def ejecutar_algoritmo_genetico(
     poblacion  = [generar_individuo() for _ in range(pop_size)]
     best_fit   = -math.inf
     best_ind: List[float] = []
-    historial: List[float] = []
+    historial_mejor: List[float] = []
+    historial_peor:  List[float] = []
+    historial_prom:  List[float] = []
+    historial_vars:  List[Dict[str, Any]] = []
 
     for _ in range(generaciones):
         aptitudes_lista = [aptitud(ind, factor_mensual, factor_sabado, total_sabados, nivel_imeca)
                            for ind in poblacion]
         ranking = sorted(zip(poblacion, aptitudes_lista), key=lambda x: x[1], reverse=True)
         mejor_ind_gen, mejor_fit_gen = ranking[0]
-        historial.append(float(mejor_fit_gen))
+        historial_mejor.append(float(mejor_fit_gen))
+        historial_peor.append(float(min(aptitudes_lista)))
+        historial_prom.append(float(sum(aptitudes_lista) / len(aptitudes_lista)))
+        decoded_gen = decodificar_individuo(mejor_ind_gen, total_sabados, nivel_imeca)
+        d_ag_gen    = decoded_gen["decisiones_ag"]
+        historial_vars.append({
+            "sabados_h1":       int(d_ag_gen.get("sabados_h1", 0)),
+            "sabados_h2":       int(d_ag_gen.get("sabados_h2", 0)),
+            "dias_extra_h2":    int(d_ag_gen.get("dias_extra_h2", 0)),
+            "h0_weekday_count": int(d_ag_gen.get("h0_weekday_count", 0)),
+            "n_light_h1":       int(d_ag_gen.get("n_light_h1", 0)),
+            "n_light_h2":       int(d_ag_gen.get("n_light_h2", 0)),
+        })
         if mejor_fit_gen > best_fit:
             best_fit, best_ind = float(mejor_fit_gen), mejor_ind_gen[:]
 
@@ -563,7 +648,14 @@ def ejecutar_algoritmo_genetico(
                 nueva.append(mutar(h2, prob_mutacion))
         poblacion = poda(nueva, factor_mensual, factor_sabado, total_sabados, pop_size, nivel_imeca)
 
-    return {"mejor_fitness": float(best_fit), "mejor_individuo": best_ind, "historial_fitness": historial}
+    return {
+        "mejor_fitness":      float(best_fit),
+        "mejor_individuo":    best_ind,
+        "historial_fitness":  historial_mejor,
+        "historial_peor":     historial_peor,
+        "historial_promedio": historial_prom,
+        "historial_vars":     historial_vars,
+    }
 
 
 def evolucionar(factor_mensual: float, params: Optional[Dict[str, Any]] = None,
@@ -607,7 +699,9 @@ def generar_json_final(params: Optional[Dict[str, Any]] = None) -> Dict[str, Any
 
     meses_out: List[Dict[str, Any]] = []
     fitness_acumulado: List[float] = []
+    analytics_por_mes: List[Dict[str, Any]] = []
     used_color_day_tuples: set = set()
+    FLOTA_TOTAL = 6_000_000; CO2_KG = 4.2; EFFECTIVENESS = 0.60
 
     for i in range(meses_count):
         year_i, month_i = add_months(start_year, start_month, i)
@@ -625,6 +719,12 @@ def generar_json_final(params: Optional[Dict[str, Any]] = None) -> Dict[str, Any
         mejor_ind    = ag_result["mejor_individuo"]
         decoded      = decodificar_individuo(mejor_ind, total_sab_i, nivel_imeca)
         color_to_day = decoded["color_dia_final"]
+        # Compute CO2 / autos analytics for this month
+        _weekdays_i = sum(1 for w in monthcalendar(year_i, month_i) for d in w[:5] if d != 0)
+        _h2_cd_i = (FLOTA_TOTAL*0.55/5*_weekdays_i)
+        _h1_cd_i = (FLOTA_TOTAL*0.40/5*_weekdays_i)
+        _co2_i   = (_h2_cd_i + _h1_cd_i) * CO2_KG * EFFECTIVENESS / 1000
+        _autos_i = (_h2_cd_i + _h1_cd_i) / days_in_month(year_i, month_i) / 1e6
 
         # Garantiza diversidad de rotaciones entre meses
         color_tuple = tuple(color_to_day[c] for c in COLOR_ORDER)
@@ -641,6 +741,16 @@ def generar_json_final(params: Optional[Dict[str, Any]] = None) -> Dict[str, Any
             ag_decisions=decoded["decisiones_ag"],
             nivel_imeca=nivel_imeca,
         ))
+        analytics_por_mes.append({
+            "mes": month_i, "year": year_i, "contaminacion": contaminacion_i,
+            "historial_mejor":    ag_result.get("historial_fitness", []),
+            "historial_peor":     ag_result.get("historial_peor", []),
+            "historial_promedio": ag_result.get("historial_promedio", []),
+            "historial_vars":     ag_result.get("historial_vars", []),
+            "variables_optimas":  decoded["decisiones_ag"],
+            "co2_evitado_ton":    round(_co2_i, 1),
+            "autos_dia_millones": round(_autos_i, 3),
+        })
 
     resultado = {
         "timestamp": str(date.today()),
@@ -652,6 +762,7 @@ def generar_json_final(params: Optional[Dict[str, Any]] = None) -> Dict[str, Any
         "contexto_entorno": {"factor_sabado": factor_sabado, "usa_entorno_etl": bool(entorno)},
         "mejor_fitness": sum(fitness_acumulado) / len(fitness_acumulado) if fitness_acumulado else 0.0,
         "mejor_solucion": {"meses": meses_out},
+        "analytics": {"por_mes": analytics_por_mes},
     }
 
     RESULTADO_PATH.parent.mkdir(parents=True, exist_ok=True)
