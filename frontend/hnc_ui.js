@@ -48,11 +48,14 @@ function initializeDOM() {
   els.demoStatusText = document.getElementById("demoStatusText") || document.createElement("div");
   els.demoVehicleSummary = document.getElementById("demoVehicleSummary") || document.createElement("div");
   els.btnVerificar = document.getElementById("btnVerificar") || document.createElement("button");
-  els.fileEodSemana = document.getElementById("fileEodSemana") || document.createElement("input");
-  els.fileEodSabado = document.getElementById("fileEodSabado") || document.createElement("input");
-  els.fileVmrc = document.getElementById("fileVmrc") || document.createElement("input");
-  els.fileVerificacion = document.getElementById("fileVerificacion") || document.createElement("input");
-  els.fileContaminantes = document.getElementById("fileContaminantes") || document.createElement("input");
+  els.etlFileList = document.getElementById("etlFileList") || document.createElement("div");
+  // IAS panel
+  els.fileIas = document.getElementById("fileIas") || document.createElement("input");
+  els.iasFileName = document.getElementById("iasFileName") || document.createElement("span");
+  els.btnImportarIas = document.getElementById("btnImportarIas") || document.createElement("button");
+  els.iasBadge = document.getElementById("iasBadge") || document.createElement("span");
+  els.iasStatus = document.getElementById("iasStatus") || document.createElement("div");
+  els.iasPreview = document.getElementById("iasPreview") || document.createElement("div");
   els.startMonth = document.getElementById("startMonth") || document.createElement("input");
   els.horizonteMeses = document.getElementById("horizonteMeses") || document.createElement("input");
   els.envSummary = document.getElementById("envSummary") || document.createElement("div");
@@ -77,9 +80,10 @@ function initializeDOM() {
   els.statsStrip = document.getElementById("statsStrip") || document.createElement("div");
   els.statZona = document.getElementById("statZona") || document.createElement("div");
   els.statFitness = document.getElementById("statFitness") || document.createElement("div");
-  els.statH1 = document.getElementById("statH1") || document.createElement("div");
-  els.statH2 = document.getElementById("statH2") || document.createElement("div");
-  els.statH00 = document.getElementById("statH00") || document.createElement("div");
+  els.statH0  = document.getElementById("statH0")  || document.createElement("div");
+  els.statH1  = document.getElementById("statH1")  || document.createElement("div");
+  els.statH2  = document.getElementById("statH2")  || document.createElement("div");
+  els.statH00 = document.getElementById("statH00") || document.createElement("div"); // legacy
   els.hybridSummary = document.getElementById("hybridSummary") || document.createElement("div");
   els.vehHolograma = document.getElementById("vehHolograma") || document.createElement("select");
   els.vehDigito = document.getElementById("vehDigito") || document.createElement("select");
@@ -289,12 +293,15 @@ function normalizeResultForUI(result) {
       const diaNormal = dia === "miercoles" ? "Miércoles" : `${dia.slice(0,1).toUpperCase()}${dia.slice(1)}`;
       const horario = `${String(cfg.horario?.[0] ?? 5).padStart(2, "0")}:00 a ${String(cfg.horario?.[1] ?? 22).padStart(2, "0")}:00`;
       const zona = `${(cfg.zona || "total").slice(0, 1).toUpperCase()}${(cfg.zona || "total").slice(1)}`;
+      // fechas_ligeras: [{fecha, horario, zona}, ...] — cada entrada trae su propio schedule
+      const fechasLigerasH1 = Array.isArray(cfg.fechas_ligeras) ? cfg.fechas_ligeras : [];
       castigosH1[color] = {
         placas: grupos[color] || [], dia_normal: diaNormal, dias_extra: [],
         sabados: Array.isArray(cfg.sabados) ? cfg.sabados : [],
         total_sabados_castigados: Array.isArray(cfg.sabados) ? cfg.sabados.length : 0,
         horario: horario,
         zona: zona,
+        fechas_ligeras: fechasLigerasH1,
       };
     }
     for (const [color, cfg] of Object.entries(mesData?.h2?.por_color || {})) {
@@ -308,6 +315,8 @@ function normalizeResultForUI(result) {
         const idx = dt.getDay() === 0 ? 6 : dt.getDay() - 1;
         return DAYS[idx];
       });
+      // fechas_ligeras: [{fecha, horario, zona}, ...] — mismo formato que H1
+      const fechasLigerasH2 = Array.isArray(cfg.fechas_ligeras) ? cfg.fechas_ligeras : [];
       castigosH2[color] = {
         placas: grupos[color] || [], dia_normal: diaNormal,
         dias_extra: diasExtra, fechas_extra: Array.isArray(cfg.extras) ? cfg.extras : [],
@@ -317,6 +326,7 @@ function normalizeResultForUI(result) {
         total_sabados_castigados: Array.isArray(cfg.sabados) ? cfg.sabados.length : 0,
         horario: horario,
         zona: zona,
+        fechas_ligeras: fechasLigerasH2,
       };
     }
     const h1Verde = mesData?.h1?.por_color?.Verde || { horario:[5,22], zona:"total" };
@@ -519,11 +529,23 @@ function renderDayDetail() {
     const isSaturdayRestricted = !isDateOnlyHologram && isSaturday && Array.isArray(info.sabados) && info.sabados.includes(getSaturdayNumber(dt));
     const isExtraDay = !isDateOnlyHologram && Array.isArray(info.fechas_extra) && info.fechas_extra.includes(isoDate);
     const isDateBasedRestricted = Array.isArray(info.fechas_restriccion) && info.fechas_restriccion.includes(isoDate);
+    // Buscar si esta fecha tiene una entrada ligera propia con su horario/zona
+    const lightEntry = Array.isArray(info.fechas_ligeras)
+      ? info.fechas_ligeras.find(e => e.fecha === isoDate)
+      : null;
     if (isDateOnlyHologram ? isDateBasedRestricted : (isNormalDay || isSaturdayRestricted || isExtraDay || isDateBasedRestricted)) {
       matchedColors.push({ color, info });
       if (isDateOnlyHologram ? isDateBasedRestricted : (isNormalDay || isSaturdayRestricted || isDateBasedRestricted)) {
-        dayHorario = info.horario || castigos.horario || "Libre";
-        dayZona = info.zona || castigos.zona || "Total";
+        if (lightEntry) {
+          // Usar el horario y zona específicos de esta entrada ligera
+          const h = lightEntry.horario || [5, 16];
+          dayHorario = `${String(h[0]).padStart(2,"0")}:00 a ${String(h[1]).padStart(2,"0")}:00`;
+          const z = lightEntry.zona || "total";
+          dayZona = `${z.slice(0,1).toUpperCase()}${z.slice(1)}`;
+        } else {
+          dayHorario = info.horario || castigos.horario || "Libre";
+          dayZona = info.zona || castigos.zona || "Total";
+        }
       }
     }
   }
@@ -564,28 +586,65 @@ function renderHybridSummary(result) {
 }
 
 // ─── Stats strip ─────────────────────────────────────────────────────────────
+// Muestra los días restringidos del color Azul (placas terminadas en 0 y 9).
 function renderStatsStrip(result) {
   if (!result) return;
   const meses = result?.mejor_solucion?.meses || [];
   if (!meses.length) return;
   const m0 = meses[0];
-  const h1Verde = m0?.h1?.por_color?.Verde || {};
-  const h2Verde = m0?.h2?.por_color?.Verde || {};
-  const h0Verde = m0?.h0?.por_color?.Verde || {};
-  if (els.statZona) els.statZona.textContent = `${(h2Verde.zona || "total").slice(0,1).toUpperCase()}${(h2Verde.zona||"total").slice(1)}`;
-  if (els.statFitness) els.statFitness.textContent = typeof result.mejor_fitness === "number" ? result.mejor_fitness.toFixed(1) : "—";
+
+  // Datos del color Azul (placas 0,9) en el primer mes
+  const h0Azul = m0?.h0?.por_color?.Azul || {};
+  const h1Azul = m0?.h1?.por_color?.Azul || {};
+  const h2Azul = m0?.h2?.por_color?.Azul || {};
+
+  // Zona y fitness
+  if (els.statZona) {
+    const z = h2Azul.zona || "total";
+    els.statZona.textContent = z.charAt(0).toUpperCase() + z.slice(1);
+  }
+  if (els.statFitness) {
+    els.statFitness.textContent =
+      typeof result.mejor_fitness === "number" ? result.mejor_fitness.toFixed(1) : "—";
+  }
+
+  // Contar cuántos días de la semana (día fijo de Azul) hay en el mes
+  // Ej: si Azul tiene dia_base="viernes" y el mes tiene 4 viernes → diasNorm=4
+  const year     = m0?.year  || new Date().getFullYear();
+  const mes      = m0?.mes   || (new Date().getMonth() + 1);
+  const diaBase  = (h2Azul.dia_base || h1Azul.dia_base || "viernes").toLowerCase();
+  const wdMap    = { lunes:1, martes:2, miercoles:3, jueves:4, viernes:5 };
+  const targetWd = wdMap[diaBase] ?? 5;                     // getDay(): 1=lun … 5=vie
+  let diasNorm   = 0;
+  const totalDias = new Date(year, mes, 0).getDate();
+  for (let d = 1; d <= totalDias; d++) {
+    if (new Date(year, mes - 1, d).getDay() === targetWd) diasNorm++;
+  }
+
+  const DIAS_ES = { lunes:"Lun", martes:"Mar", miercoles:"Mié",
+                    jueves:"Jue", viernes:"Vie" };
+  const diaCorto = DIAS_ES[diaBase] || diaBase;
+
+  // H0: días normales restringidos (contingencia)
+  if (els.statH0) {
+    const h0Dias = h0Azul.fechas_restriccion?.length ?? 0;
+    els.statH0.textContent = h0Dias > 0 ? `${h0Dias} días (${diaCorto})` : "Libre";
+  }
+
+  // H1: días normales del mes + sábados
   if (els.statH1) {
-    const sabs = h1Verde.sabados?.length ?? 0;
-    els.statH1.textContent = `${h1Verde.dia_base || "—"} | ${sabs} sáb.`;
+    const sabs = h1Azul.sabados?.length ?? 0;
+    els.statH1.textContent =
+      `${diasNorm} días norm. + ${sabs} sáb.`;
   }
+
+  // H2: días normales + sábados + días extra
   if (els.statH2) {
-    const sabs = h2Verde.sabados?.length ?? 0;
-    const extras = h2Verde.fechas_restriccion?.length ?? 0;
-    els.statH2.textContent = `${h2Verde.dia_base || "—"} | ${sabs} sáb.${extras ? ` +${extras}dx` : ""}`;
-  }
-  if (els.statH00) {
-    const restr = h0Verde.fechas_restriccion?.length ?? 0;
-    els.statH00.textContent = restr > 0 ? `${restr} días contingencia` : "Libre";
+    const sabs   = h2Azul.sabados?.length ?? 0;
+    const extras = (h2Azul.extras ?? h2Azul.fechas_restriccion ?? []).length;
+    const extStr = extras > 0 ? ` + ${extras} ext.` : "";
+    els.statH2.textContent =
+      `${diasNorm} días norm. + ${sabs} sáb.${extStr}`;
   }
 }
 
@@ -600,13 +659,155 @@ async function fetchJSON(url, opts) {
   }
 }
 
-function updateEnvSummary() {
-  if (!els.envSummary) return;
-  const files = state.files;
-  const loaded = Object.entries(files).filter(([,v]) => v).map(([k]) => k);
-  els.envSummary.textContent = loaded.length
-    ? `Fuentes cargadas: ${loaded.join(", ")}.`
-    : "Sin fuentes ETL cargadas.";
+function updateEnvSummary() { /* reemplazado por panel ETL dinámico */ }
+
+// ── Panel ETL dinámico ────────────────────────────────────────────────────
+
+// Metadatos de cada tipo de archivo para la UI
+const ETL_TIPOS = {
+  verificacion:   { label: "Verificación automotriz",   accept: ".csv",        carpeta: "1.Factores de Emisión",              nombre: "verificacion_automotriz.csv" },
+  ias:            { label: "Calidad del aire (IAS)",    accept: ".csv",        carpeta: "1.Factores de Emisión",              nombre: "ias_calidad_aire.csv" },
+  vmrc:           { label: "Parque vehicular (VMRC)",   accept: ".csv",        carpeta: "2.Composición del Parque Vehicular", nombre: "vmrc_parque_vehicular.csv" },
+  contaminantes:  { label: "Contaminantes",             accept: ".csv",        carpeta: "3.Curvas de Demanda y Tráfico",      nombre: "contaminantes.csv" },
+  eod_semana_xlsx:{ label: "EOD entre semana (XLSX)",   accept: ".xlsx",       carpeta: "3.Curvas de Demanda y Tráfico",      nombre: "eod_entre_semana.xlsx" },
+  eod_sabado:     { label: "EOD sábado (XLSX)",         accept: ".xlsx",       carpeta: "3.Curvas de Demanda y Tráfico",      nombre: "eod_sabado.xlsx" },
+};
+
+// Estado interno de cada archivo (ok/error/ausente + mensaje)
+const etlState = {};
+
+function renderEtlFileList(archivosBackend = {}) {
+  const wrap = els.etlFileList;
+  if (!wrap) return;
+  wrap.innerHTML = "";
+
+  Object.entries(ETL_TIPOS).forEach(([tipo, meta]) => {
+    const info    = archivosBackend[tipo] || {};
+    const existe  = info.existe ?? false;
+    const tamKB   = info.tamaño_kb;
+    const rowState = etlState[tipo];
+
+    const rowClass = rowState?.ok === true  ? "ok"
+                   : rowState?.ok === false ? "error"
+                   : rowState?.loading      ? "loading"
+                   : existe                 ? "ok" : "";
+
+    const row = document.createElement("div");
+    row.className = `etl-file-row ${rowClass}`;
+    row.dataset.tipo = tipo;
+
+    row.innerHTML = `
+      <div class="etl-status-dot"></div>
+      <div class="etl-file-info">
+        <div class="etl-file-name">${meta.label}</div>
+        <div class="etl-file-desc">${meta.carpeta}/<strong>${meta.nombre}</strong></div>
+      </div>
+      <div class="etl-file-size">${existe ? (tamKB > 1024 ? (tamKB/1024).toFixed(1)+" MB" : tamKB+" KB") : "no cargado"}</div>
+      <label style="cursor:pointer">
+        <input type="file" accept="${meta.accept}" style="display:none" data-tipo="${tipo}" />
+        <span class="etl-upload-btn">Subir</span>
+      </label>`;
+
+    // Mensaje de estado (validación)
+    if (rowState?.msg) {
+      const msgDiv = document.createElement("div");
+      msgDiv.className = `etl-msg ${rowState.ok ? "ok" : "err"}`;
+      msgDiv.textContent = rowState.msg;
+      row.appendChild(msgDiv);
+    }
+
+    // Evento al seleccionar archivo
+    const fileInput = row.querySelector("input[type=file]");
+    fileInput?.addEventListener("change", async e => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      await subirArchivoEtl(tipo, file);
+    });
+
+    wrap.appendChild(row);
+  });
+}
+
+async function subirArchivoEtl(tipo, file) {
+  etlState[tipo] = { loading: true };
+  renderEtlFileList(_etlArchivosBackend);
+
+  const fd = new FormData();
+  fd.append("archivo", file);
+  fd.append("tipo", tipo);
+
+  try {
+    const resp = await fetch("/api/subir-archivo", { method: "POST", body: fd });
+    const data = await resp.json();
+
+    if (resp.ok && data.ok) {
+      etlState[tipo] = { ok: true, msg: data.mensaje };
+      // Actualizar tamaño en caché local
+      if (_etlArchivosBackend[tipo]) {
+        _etlArchivosBackend[tipo].existe = true;
+        _etlArchivosBackend[tipo].tamaño_kb = Math.round(file.size / 1024 * 10) / 10;
+      }
+      // Si es IAS, también actualizar el entorno
+      if (tipo === "ias") {
+        await ejecutarEtlIas(etlState[tipo]);
+      }
+    } else {
+      const errMsg = data.error || data.mensaje || `HTTP ${resp.status}`;
+      etlState[tipo] = { ok: false, msg: errMsg };
+    }
+  } catch (err) {
+    etlState[tipo] = { ok: false, msg: `Error de red: ${err.message}` };
+  }
+
+  renderEtlFileList(_etlArchivosBackend);
+}
+
+async function ejecutarEtlIas(estadoPrevio) {
+  // El archivo IAS ya fue guardado en la ruta canónica; ahora pedimos al
+  // backend que actualice entorno_cdmx.json con los nuevos datos
+  try {
+    const fd = new FormData();
+    // Obtener el archivo canónico que ya fue guardado
+    const resp = await fetch("/api/etl-ias", {
+      method: "POST",
+      body: (() => {
+        // Usamos la ruta canónica ya guardada — el servidor sabe dónde está
+        // Enviamos form vacío con señal para usar archivo guardado
+        const f = new FormData();
+        f.append("usar_canonico", "1");
+        return f;
+      })(),
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.ajustes_mensuales) {
+        renderIasPreview(data.ajustes_mensuales);
+        if (els.iasBadge) {
+          els.iasBadge.textContent = "Datos reales cargados";
+          els.iasBadge.className = "ias-badge loaded";
+        }
+      }
+    }
+  } catch (_) { /* silencioso */ }
+}
+
+let _etlArchivosBackend = {};
+
+async function cargarEstadoArchivos() {
+  try {
+    const data = await fetchJSON("/api/archivos");
+    if (data && typeof data === "object") {
+      _etlArchivosBackend = data;
+      // Verificar si IAS ya tiene datos reales
+      if (data.ias?.existe && els.iasBadge) {
+        els.iasBadge.textContent = "Datos reales en servidor";
+        els.iasBadge.className = "ias-badge loaded";
+      }
+      renderEtlFileList(data);
+    }
+  } catch (_) {
+    renderEtlFileList({});
+  }
 }
 
 async function verifyBackend() {
@@ -648,11 +849,8 @@ function buildFormData() {
   params.estrategia_cruza     = cruzEl?.value || "un_punto";
   params.estrategia_mutacion  = mutEl?.value  || "uniforme";
   fd.append("params", JSON.stringify(params));
-  if (state.files.eodSemana)     fd.append("eodEntreSemanaXlsx", state.files.eodSemana);
-  if (state.files.eodSabado)     fd.append("eodSabado",           state.files.eodSabado);
-  if (state.files.vmrc)          fd.append("vmrc",                 state.files.vmrc);
-  if (state.files.verificacion)  fd.append("verificacion",         state.files.verificacion);
-  if (state.files.contaminantes) fd.append("contaminantes",        state.files.contaminantes);
+  // Los archivos ETL ya se subieron individualmente vía /api/subir-archivo.
+  // El backend los usa desde sus rutas canónicas al ejecutar el ETL.
   return fd;
 }
 
@@ -965,10 +1163,9 @@ function renderEsquema(anData, normalizedResult) {
       const dia = DIAS_TITULO[h2c.dia_base] || h2c.dia_base || "—";
       const sabs = h2c.sabados?.length ?? 0;
       const extras = h2c.fechas_restriccion?.length ?? 0;
-      html += `<td>
-        <span class="color-chip" style="background:${hex}18;border-color:${hex};color:${hex}">
-          ${dia}<br/><small style="font-weight:400">${sabs} sáb.${extras ? ` +${extras}dx` : ""}</small>
-        </span></td>`;
+      html += `<td style="color:#111;font-weight:600">
+        ${dia}<br/><small style="font-weight:400;color:#555">${sabs} sáb.${extras ? ` +${extras}dx` : ""}</small>
+      </td>`;
     });
     html += `<td class="co2-cell">${an.co2_evitado_ton != null ? Number(an.co2_evitado_ton).toLocaleString("es-MX",{maximumFractionDigits:0}) + " t" : "—"}</td></tr>`;
   });
@@ -980,65 +1177,174 @@ function renderEsquema(anData, normalizedResult) {
 // ── TAB 4: CO₂ / Costo-Beneficio ─────────────────────────────────────────────
 function renderCo2Charts(anData) {
   const strip = document.getElementById("co2StatsStrip");
-  const totalCo2 = anData.reduce((s, m) => s + (m.co2_evitado_ton || 0), 0);
-  const avgAutos = anData.reduce((s, m) => s + (m.autos_dia_millones || 0), 0) / (anData.length || 1);
+
+  // Totales del período
+  const totalCo2Evit  = anData.reduce((s, m) => s + (m.co2_evitado_ton || 0), 0);
+  const totalCo2Base  = anData.reduce((s, m) => s + (m.co2_base_ton || 0), 0);
+  const avgAutos      = anData.reduce((s, m) => s + (m.autos_dia_millones || 0), 0) / (anData.length || 1);
+  const totalCosto    = anData.reduce((s, m) => s + (m.costo_economico_millones || 0), 0);
+  const avgImeca      = anData.reduce((s, m) => s + (m.imeca_promedio_real || m.nivel_imeca_efectivo || 0), 0) / (anData.length || 1);
+
+  // CO2 real ahorrado (base − con restricción)
+  const co2Ahorrado   = Math.max(0, totalCo2Base - totalCo2Evit);
+  const reduccionPct  = totalCo2Base > 0 ? ((co2Ahorrado / totalCo2Base) * 100).toFixed(1) : "—";
+
   if (strip) {
     strip.innerHTML = `
-      <div class="co2-stat"><span class="co2-stat-label">CO₂ Total 6 meses</span><span class="co2-stat-value">${totalCo2.toLocaleString("es-MX",{maximumFractionDigits:0})}</span><span class="co2-stat-unit">toneladas</span></div>
-      <div class="co2-stat"><span class="co2-stat-label">Autos/día promedio</span><span class="co2-stat-value">${avgAutos.toFixed(2)}M</span><span class="co2-stat-unit">vehículos detenidos</span></div>
-      <div class="co2-stat"><span class="co2-stat-label">CO₂ / mes (prom.)</span><span class="co2-stat-value">${(totalCo2/anData.length).toLocaleString("es-MX",{maximumFractionDigits:0})}</span><span class="co2-stat-unit">ton / mes</span></div>
-      <div class="co2-stat"><span class="co2-stat-label">Efectividad estimada</span><span class="co2-stat-value">60%</span><span class="co2-stat-unit">conductores que omiten circular</span></div>`;
+      <div class="co2-stat">
+        <span class="co2-stat-label">CO₂ Ahorrado</span>
+        <span class="co2-stat-value">${co2Ahorrado.toLocaleString("es-MX",{maximumFractionDigits:0})}</span>
+        <span class="co2-stat-unit">ton (vs. sin restricción)</span>
+      </div>
+      <div class="co2-stat">
+        <span class="co2-stat-label">Reducción CO₂</span>
+        <span class="co2-stat-value">${reduccionPct}%</span>
+        <span class="co2-stat-unit">del total sin restricción</span>
+      </div>
+      <div class="co2-stat">
+        <span class="co2-stat-label">Autos/día (prom.)</span>
+        <span class="co2-stat-value">${avgAutos.toFixed(2)}M</span>
+        <span class="co2-stat-unit">vehículos restringidos</span>
+      </div>
+      <div class="co2-stat">
+        <span class="co2-stat-label">Costo económico</span>
+        <span class="co2-stat-value">$${totalCosto.toLocaleString("es-MX",{maximumFractionDigits:0})}</span>
+        <span class="co2-stat-unit">millones MXN (período)</span>
+      </div>
+      <div class="co2-stat">
+        <span class="co2-stat-label">IMECA prom. real</span>
+        <span class="co2-stat-value">${avgImeca.toFixed(0)}</span>
+        <span class="co2-stat-unit">IAS_2024 SIMAT CDMX</span>
+      </div>`;
   }
 
-  const labels = anData.map(m => `${MONTH_NAMES[(m.mes||1)-1].slice(0,3)}\n${m.year}`);
-  const co2Vals = anData.map(m => m.co2_evitado_ton || 0);
-  const autosVals = anData.map(m => m.autos_dia_millones || 0);
+  const labels     = anData.map(m => `${MONTH_NAMES[(m.mes||1)-1].slice(0,3)} ${m.year}`);
+  const co2EvitVals  = anData.map(m => m.co2_evitado_ton  || 0);
+  const co2BaseVals  = anData.map(m => m.co2_base_ton     || 0);
+  const co2AhorVals  = anData.map(m => Math.max(0, (m.co2_base_ton || 0) - (m.co2_evitado_ton || 0)));
+  const autosVals    = anData.map(m => m.autos_dia_millones || 0);
+  const costoVals    = anData.map(m => m.costo_economico_millones || 0);
+  const imecaVals    = anData.map(m => m.imeca_promedio_real || m.nivel_imeca_efectivo || 0);
 
   injectDownloadBtn("tabCo2", makeDownloadBtn("Descargar PNG", () =>
     downloadMultiCanvas(["chartCo2","chartAutos"], "costo_beneficio_co2")));
+
+  // Gráfica 1: Comparación CO₂ con restricción vs. sin restricción + CO₂ ahorrado
   makeChart("chartCo2", {
     type: "bar",
     data: {
       labels,
-      datasets: [{
-        label: "CO₂ evitado (ton)",
-        data: co2Vals,
-        backgroundColor: "rgba(22,163,74,0.75)",
-        borderColor: "#16a34a", borderWidth: 1.5, borderRadius: 4,
-      }],
+      datasets: [
+        {
+          label: "CO₂ sin restricción (ton)",
+          data: co2BaseVals,
+          backgroundColor: "rgba(156,163,175,0.5)",
+          borderColor: "#9ca3af", borderWidth: 1.5, borderRadius: 4,
+          order: 2,
+        },
+        {
+          label: "CO₂ con HNC (ton)",
+          data: co2EvitVals,
+          backgroundColor: "rgba(239,68,68,0.65)",
+          borderColor: "#ef4444", borderWidth: 1.5, borderRadius: 4,
+          order: 2,
+        },
+        {
+          type: "line",
+          label: "IMECA real (eje der.)",
+          data: imecaVals,
+          borderColor: "#f59e0b",
+          backgroundColor: "rgba(245,158,11,0.12)",
+          pointRadius: 5, pointHoverRadius: 7, borderWidth: 2,
+          fill: false, tension: 0.35,
+          yAxisID: "yImeca",
+          order: 1,
+        },
+      ],
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
-        legend: { display: false },
-        title: { display: true, text: "CO₂ Evitado por Mes (toneladas)", font: { size: 12 } },
-      },
-      scales: { y: { title: { display: true, text: "Toneladas CO₂" }, beginAtZero: true } },
-    },
-  });
-
-  makeChart("chartAutos", {
-    type: "line",
-    data: {
-      labels,
-      datasets: [{
-        label: "Autos detenidos/día (M)",
-        data: autosVals,
-        borderColor: "#dc2626", backgroundColor: "rgba(220,38,38,0.1)",
-        pointRadius: 5, pointHoverRadius: 7, borderWidth: 2.5,
-        fill: true, tension: 0.3,
-      }],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        title: { display: true, text: "Autos Detenidos/Día (millones)", font: { size: 12 } },
+        legend: { display: true, position: "top", labels: { font: { size: 11 } } },
+        title: { display: true, text: "CO₂ Emitido: Con HNC vs. Sin Restricción + IMECA real", font: { size: 12 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if (ctx.dataset.label?.includes("IMECA")) return ` IMECA: ${ctx.raw.toFixed(0)} puntos`;
+              return ` ${ctx.dataset.label}: ${Number(ctx.raw).toLocaleString("es-MX",{maximumFractionDigits:0})} ton`;
+            },
+          },
+        },
       },
       scales: {
         y: {
-          title: { display: true, text: "Millones de autos" },
-          ticks: { callback: v => v.toFixed(2) + "M" },
+          title: { display: true, text: "Toneladas CO₂" },
+          beginAtZero: true,
+          position: "left",
+        },
+        yImeca: {
+          title: { display: true, text: "IMECA" },
+          position: "right",
+          grid: { drawOnChartArea: false },
+          min: 0, max: 200,
+        },
+      },
+    },
+  });
+
+  // Gráfica 2: Autos restringidos/día vs Costo económico (eje dual)
+  makeChart("chartAutos", {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Autos restringidos/día (M)",
+          data: autosVals,
+          backgroundColor: "rgba(239,68,68,0.5)",
+          borderColor: "#dc2626", borderWidth: 1.5, borderRadius: 4,
+          yAxisID: "yAutos",
+          order: 2,
+        },
+        {
+          type: "line",
+          label: "Costo económico (M MXN)",
+          data: costoVals,
+          borderColor: "#7c3aed",
+          backgroundColor: "rgba(124,58,237,0.1)",
+          pointRadius: 5, pointHoverRadius: 7, borderWidth: 2.5,
+          fill: true, tension: 0.3,
+          yAxisID: "yCosto",
+          order: 1,
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, position: "top", labels: { font: { size: 11 } } },
+        title: { display: true, text: "Vehículos Restringidos/Día vs. Costo Económico Estimado", font: { size: 12 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if (ctx.dataset.label?.includes("Costo"))
+                return ` Costo: $${Number(ctx.raw).toLocaleString("es-MX",{maximumFractionDigits:0})}M MXN`;
+              return ` Autos: ${Number(ctx.raw).toFixed(2)}M`;
+            },
+          },
+        },
+      },
+      scales: {
+        yAutos: {
+          title: { display: true, text: "Millones de autos/día" },
+          beginAtZero: true, position: "left",
+          ticks: { callback: v => v.toFixed(1) + "M" },
+        },
+        yCosto: {
+          title: { display: true, text: "Costo (M MXN)" },
+          beginAtZero: true, position: "right",
+          grid: { drawOnChartArea: false },
+          ticks: { callback: v => "$" + v.toLocaleString("es-MX",{maximumFractionDigits:0}) + "M" },
         },
       },
     },
@@ -1053,61 +1359,156 @@ function renderIndividuo(mesData, normalizedResult) {
   const m = meses[analyticsState.activeMesIdx] || meses[0];
   if (!m) { wrap.innerHTML = "<em>Sin datos.</em>"; return; }
 
-  const cont = m.contaminacion || "—";
+  const cont      = m.contaminacion || "—";
   const contLabel = CONT_LABELS[cont] || cont;
   const contColor = CONT_COLORS[cont] || "#888";
   const yr = m.year; const mo = m.mes;
-  const h2verde = m?.h2?.por_color?.Verde || {};
-  const h1verde = m?.h1?.por_color?.Verde || {};
-  const h0verde = m?.h0?.por_color?.Verde || {};
-  const sabs_h2 = h2verde.sabados?.length ?? "—";
-  const sabs_h1 = h1verde.sabados?.length ?? "—";
-  const dias_h0 = h0verde.fechas_restriccion?.length ?? 0;
-  const extras_h2 = h2verde.fechas_restriccion?.length ?? 0;
-  const fitness = mesData.variables_optimas ? (mesData.variables_optimas.sabados_h2 != null ? "Disponible" : "—") : "—";
+  const COLORES   = ["Verde","Amarillo","Rosa","Rojo","Azul"];
 
-  const kvRows = [
-    ["Mes", `${MONTH_NAMES[mo-1]} ${yr}`],
-    ["Contaminación", `<span style="background:${contColor};color:#fff;border-radius:999px;padding:1px 8px;font-size:0.78rem">${contLabel}</span>`],
-    ["Horario restricción", "05:00 – 22:00 hrs"],
-    ["Zona de aplicación", `${((m?.h2?.por_color?.Verde?.zona || "total").slice(0,1).toUpperCase())}${(m?.h2?.por_color?.Verde?.zona || "total").slice(1)}`],
-    ["H2 sábados restringidos", `${sabs_h2} sábados`],
-    ["H1 sábados restringidos", `${sabs_h1} sábados`],
-    ["H2 días extra por grupo", `${extras_h2} días`],
-    ["Días contingencia H0", `${dias_h0} días`],
-    ["CO₂ evitado (mes)", `${mesData.co2_evitado_ton != null ? Number(mesData.co2_evitado_ton).toLocaleString("es-MX",{maximumFractionDigits:0}) + " ton" : "—"}`],
-    ["Autos detenidos/día", `${mesData.autos_dia_millones != null ? Number(mesData.autos_dia_millones).toFixed(2) + "M" : "—"}`],
-  ];
+  // ─── métricas de impacto ────────────────────────────────────────────────
+  const co2     = mesData.co2_evitado_ton != null
+                  ? Number(mesData.co2_evitado_ton).toLocaleString("es-MX",{maximumFractionDigits:0}) + " ton" : "—";
+  const autosM  = mesData.autos_dia_millones != null
+                  ? Number(mesData.autos_dia_millones).toFixed(2) + " M veh/día" : "—";
+  const fitness = mesData.historial_mejor?.at(-1) != null
+                  ? Number(mesData.historial_mejor.at(-1)).toFixed(3) : "—";
 
-  const colores = ["Verde","Amarillo","Rosa","Rojo","Azul"];
-  const colorRows = colores.map(color => {
-    const hex = COLOR_MAP[color].hex;
-    const h2c = m?.h2?.por_color?.[color] || {};
-    const dia = DIAS_TITULO[h2c.dia_base] || h2c.dia_base || "—";
-    const sabs = h2c.sabados?.length ?? 0;
-    const extras = h2c.fechas_restriccion || [];
-    const placas = GRUPOS_PLACA[color] || [];
-    return `<div class="color-row" style="background:${hex}10;border-color:${hex}55">
-      <span class="color-row-name" style="color:${hex}">${color}</span>
-      <span class="color-row-placas">Pl. ${placas.join(",")}</span>
-      <span class="color-row-dia">${dia}</span>
-      <span class="color-row-details">${sabs} sáb. H2</span>
-      ${extras.length ? `<span class="color-row-extras">+${extras.length} días extra: ${extras.join(", ")}</span>` : ""}
-    </div>`;
+  // ─── tabla principal: una fila por color, columnas: H00 H0 H1 H2 ────────
+  const tableRows = COLORES.map(color => {
+    const hex   = COLOR_MAP[color].hex;
+    const placas = (GRUPOS_PLACA[color] || []).join(", ");
+    const h0c   = m?.h0?.por_color?.[color]  || {};
+    const h1c   = m?.h1?.por_color?.[color]  || {};
+    const h2c   = m?.h2?.por_color?.[color]  || {};
+    const dia   = DIAS_TITULO[h2c.dia_base || h1c.dia_base] || "—";
+
+    // H0
+    const h0dias  = (h0c.fechas_restriccion || []).length;
+    const h0str   = h0dias > 0
+                    ? `${h0dias} día${h0dias>1?"s":""} L-V`
+                    : `<span style="color:#888">Libre</span>`;
+
+    // H1
+    const h1sabs  = (h1c.sabados || []).length;
+    const h1hora  = h1c.horario ? `${h1c.horario[0]}:00–${h1c.horario[1]}:00` : "05:00–22:00";
+    const h1zona  = (h1c.zona||"total") === "centro" ? "Ctr." : "Tot.";
+    const h1str   = h1sabs > 0
+                    ? `${h1sabs} sáb. · ${h1hora} · ${h1zona}`
+                    : `<span style="color:#888">—</span>`;
+
+    // H2
+    const h2sabs  = (h2c.sabados || []).length;
+    const h2extra = (h2c.fechas_restriccion || []).length;
+    const h2hora  = h2c.horario ? `${h2c.horario[0]}:00–${h2c.horario[1]}:00` : "05:00–22:00";
+    const h2zona  = (h2c.zona||"total") === "centro" ? "Ctr." : "Tot.";
+    const h2total = h2c.restriccion_total
+                    ? `<strong style="color:#7a1414">Restricción Total</strong>`
+                    : `${h2sabs} sáb.${h2extra>0?" + "+h2extra+" ext.":""} · ${h2hora} · ${h2zona}`;
+
+    // intensidad = total días afectados (LV normales + sabs extra)
+    const totalDias = 4 + h1sabs + h2sabs + h2extra + h0dias; // 4 = weekdays norm H1/H2
+    const intLabel  = totalDias >= 14 ? "Fuerte" : totalDias >= 10 ? "Media" : totalDias >= 6 ? "Ligera" : "Mínima";
+    const intColor  = {Fuerte:"#7a1414", Media:"#8b6215", Ligera:"#1a5c3a", Mínima:"#456070"}[intLabel];
+
+    return `<tr>
+      <td style="border-left:4px solid ${hex};padding-left:10px">
+        <span style="background:${hex};color:#fff;border-radius:4px;padding:2px 8px;font-size:0.8rem;font-weight:700">${color}</span>
+        <span style="display:block;font-size:0.75rem;color:#666;margin-top:2px">Pl. ${placas}</span>
+      </td>
+      <td style="font-weight:600;white-space:nowrap">${dia}</td>
+      <td style="color:#888;font-size:0.8rem">Libre siempre</td>
+      <td style="font-size:0.82rem">${h0str}</td>
+      <td style="font-size:0.82rem">${h1str}</td>
+      <td style="font-size:0.82rem">${h2total}</td>
+      <td><span style="color:${intColor};font-weight:700;font-size:0.8rem">${intLabel}</span></td>
+    </tr>`;
   }).join("");
 
+  // ─── resumen de hologramas ────────────────────────────────────────────
+  const verde     = { h0: m?.h0?.por_color?.Verde||{}, h1: m?.h1?.por_color?.Verde||{}, h2: m?.h2?.por_color?.Verde||{} };
+  const tot_h0    = (verde.h0.fechas_restriccion||[]).length;
+  const tot_h1s   = (verde.h1.sabados||[]).length;
+  const tot_h2s   = (verde.h2.sabados||[]).length;
+  const tot_h2ex  = (verde.h2.fechas_restriccion||[]).length;
+
+  const HOLO_META = {
+    H00: { label:"H00", badge:"#334155", detalle:"Libre — circulan todos los días sin restricción." },
+    H0:  { label:"H0",  badge:"#334155", detalle: tot_h0>0 ? `${tot_h0} día${tot_h0>1?"s":""} L-V restringidos (contingencia)` : "Sin restricción este mes." },
+    H1:  { label:"H1",  badge:"#334155", detalle:`L-V base + ${tot_h1s} sábado${tot_h1s!==1?"s":""} restringido${tot_h1s!==1?"s":""}` },
+    H2:  { label:"H2",  badge:"#334155", detalle: verde.h2.restriccion_total ? "Restricción total (contingencia extrema)" : `L-V base + ${tot_h2s} sáb.${tot_h2ex>0?" + "+tot_h2ex+" días extra":""}` },
+  };
+  const holoRows = Object.entries(HOLO_META).map(([k,v]) => `
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;flex:1;min-width:200px">
+      <span style="background:#1a1a2e;color:#fff;border-radius:5px;padding:3px 10px;font-size:0.82rem;font-weight:800;white-space:nowrap;flex-shrink:0">${v.label}</span>
+      <div>
+        <div style="font-size:0.8rem;color:#64748b;margin-bottom:2px">${{H00:"Verificación 0-0",H0:"Holograma 0",H1:"Holograma 1",H2:"Holograma 2"}[k]}</div>
+        <div style="font-size:0.85rem;font-weight:600;color:#1a2a35">${v.detalle}</div>
+      </div>
+    </div>`).join("");
+
+  // ─── métricas impacto strip ───────────────────────────────────────────
+  const impacto = [
+    ["CO₂ evitado", co2],
+    ["Veh. detenidos/día", autosM],
+    ["Fitness final", fitness],
+    ["Calidad del aire", `<span style="background:${contColor};color:#fff;border-radius:999px;padding:1px 9px;font-size:0.8rem">${contLabel}</span>`],
+  ];
+  const impactoStrip = impacto.map(([lbl, val]) => `
+    <div style="flex:1;min-width:110px;border:1px solid #e2e8f0;border-radius:8px;padding:9px 12px;text-align:center;background:#fff">
+      <span style="display:block;font-size:0.68rem;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;margin-bottom:4px">${lbl}</span>
+      <span style="display:block;font-size:0.95rem;font-weight:700;color:#1a2a35">${val}</span>
+    </div>`).join("");
+
   injectDownloadBtn("tabIndividuo", makeDownloadBtn("Descargar PNG", () => downloadDivAsImage("individuoDetail", "mejor_individuo")));
+
   wrap.innerHTML = `
-    <div class="individuo-info">
-      <div class="individuo-info-title">Parámetros del Mejor Individuo</div>
-      <div class="individuo-kv">
-        ${kvRows.map(([k,v]) => `<div class="kv-row"><span class="kv-label">${k}</span><span class="kv-value">${v}</span></div>`).join("")}
+  <div style="font-family:inherit;width:100%">
+
+    <!-- Encabezado -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #e2e8f0;flex-wrap:wrap">
+      <div style="min-width:0">
+        <div style="font-size:1.1rem;font-weight:800;color:#1a2a35;white-space:nowrap">Mejor Solución — ${MONTH_NAMES[mo-1]} ${yr}</div>
+        <div style="font-size:0.8rem;color:#64748b;margin-top:2px">Programa Hoy No Circula optimizado para este mes</div>
       </div>
     </div>
-    <div class="individuo-colors">
-      <div class="colors-title">Asignación por Grupo de Color — H2</div>
-      ${colorRows}
-    </div>`;
+
+    <!-- Layout 2 columnas: hologramas + tabla -->
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:16px;margin-bottom:16px;align-items:start">
+
+      <!-- Columna izq: resumen hologramas -->
+      <div>
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:8px">Resumen por Holograma</div>
+        <div style="display:flex;flex-direction:column;gap:8px">${holoRows}</div>
+        <!-- Métricas impacto debajo -->
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin:14px 0 8px">Impacto Estimado</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${impactoStrip}</div>
+      </div>
+
+      <!-- Columna der: tabla por color -->
+      <div style="overflow-x:auto">
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:8px">Asignación por Grupo de Color</div>
+        <table style="width:100%;border-collapse:collapse;font-size:0.81rem">
+          <thead>
+            <tr style="background:#1a1a2e;color:#fff;text-align:left">
+              <th style="padding:8px 10px;font-weight:600">Grupo</th>
+              <th style="padding:8px 10px;font-weight:600">Día base</th>
+              <th style="padding:8px 10px;font-weight:600">H00</th>
+              <th style="padding:8px 10px;font-weight:600">H0</th>
+              <th style="padding:8px 10px;font-weight:600">H1</th>
+              <th style="padding:8px 10px;font-weight:600">H2</th>
+              <th style="padding:8px 10px;font-weight:600">Intens.</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+        <p style="font-size:0.7rem;color:#94a3b8;margin-top:6px;line-height:1.5">
+          Todos los grupos H1/H2 circulan en su día L-V asignado y se restringen en sábados seleccionados.
+          H0 solo se restringe en contingencia ambiental. "Ctr." = Zona Centro · "Tot." = toda la ZMVM.
+        </p>
+      </div>
+
+    </div>
+  </div>`;
 }
 
 
@@ -1125,7 +1526,6 @@ function downloadCanvas(canvasId, filename) {
 }
 
 function downloadMultiCanvas(canvasIds, filename) {
-  // Merge multiple canvases into one wide image and download
   const canvases = canvasIds.map(id => document.getElementById(id)).filter(Boolean);
   if (!canvases.length) return;
   const cols = 3;
@@ -1146,7 +1546,6 @@ function downloadMultiCanvas(canvasIds, filename) {
 }
 
 function downloadDivAsImage(divId, filename) {
-  // Uses html2canvas if available, otherwise falls back to plain PNG
   const div = document.getElementById(divId);
   if (!div) return;
   if (typeof html2canvas !== "undefined") {
@@ -1157,7 +1556,6 @@ function downloadDivAsImage(divId, filename) {
       link.click();
     });
   } else {
-    // Fallback: open print dialog for the section
     alert("Instala html2canvas para descarga directa. Por ahora usa Ctrl+P para imprimir esta sección.");
   }
 }
@@ -1176,7 +1574,6 @@ function injectDownloadBtn(panelId, btn) {
   if (!panel) return;
   const header = panel.querySelector(".chart-header");
   if (!header) return;
-  // Remove existing download btn
   panel.querySelector(".dl-btn")?.remove();
   header.style.display = "flex";
   header.style.alignItems = "flex-start";
@@ -1186,8 +1583,123 @@ function injectDownloadBtn(panelId, btn) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// IAS Panel
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const IMECA_COLOR = imeca => {
+  if (imeca <= 50)  return "#16a34a";
+  if (imeca <= 100) return "#eab308";
+  if (imeca <= 150) return "#f97316";
+  if (imeca <= 200) return "#dc2626";
+  return "#7c3aed";
+};
+
+const IMECA_LABEL = imeca => {
+  if (imeca <= 50)  return "Buena";
+  if (imeca <= 100) return "Aceptable";
+  if (imeca <= 150) return "Mala";
+  if (imeca <= 200) return "Muy Mala";
+  return "Extrema";
+};
+
+function renderIasPreview(ajustesMensuales) {
+  if (!els.iasPreview) return;
+  const meses = Object.entries(ajustesMensuales).sort(([a], [b]) => +a - +b);
+  const rows = meses.map(([key, d]) => {
+    const imeca = d.imeca_promedio_real ?? "—";
+    const factor = d.factor_contaminacion ?? "—";
+    const nombre = d.nombre_mes || MONTH_NAMES[(+key) - 1] || key;
+    const color = typeof imeca === "number" ? IMECA_COLOR(imeca) : "#9ca3af";
+    const label = typeof imeca === "number" ? IMECA_LABEL(imeca) : "—";
+    const barW = typeof imeca === "number" ? Math.min(60, (imeca / 200) * 60) : 0;
+    return `<tr>
+      <td style="font-weight:600">${nombre}</td>
+      <td>
+        <span style="color:${color};font-weight:700">${typeof imeca==="number" ? imeca.toFixed(1) : "—"}</span>
+        <span class="ias-imeca-bar" style="width:${barW}px;background:${color}"></span>
+      </td>
+      <td><span class="ias-badge" style="background:${color}22;color:${color}">${label}</span></td>
+      <td style="font-family:monospace">${typeof factor==="number" ? factor.toFixed(3)+"x" : "—"}</td>
+    </tr>`;
+  }).join("");
+  els.iasPreview.innerHTML = `
+    <table class="ias-table">
+      <thead><tr>
+        <th>Mes</th><th>IMECA promedio</th><th>Condición</th><th>Factor</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  els.iasPreview.classList.remove("hidden");
+}
+
+function setIasStatus(type, msg) {
+  if (!els.iasStatus) return;
+  els.iasStatus.className = `ias-status ${type}`;
+  els.iasStatus.textContent = msg;
+  els.iasStatus.classList.remove("hidden");
+}
+
+function initIasPanel() {
+  els.fileIas?.addEventListener("change", e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (els.iasFileName) els.iasFileName.textContent = file.name;
+    if (els.btnImportarIas) els.btnImportarIas.disabled = false;
+    els.iasStatus?.classList.add("hidden");
+    els.iasPreview?.classList.add("hidden");
+    if (els.iasBadge) {
+      els.iasBadge.textContent = "Archivo listo";
+      els.iasBadge.className = "ias-badge";
+    }
+  });
+
+  els.btnImportarIas?.addEventListener("click", async () => {
+    const file = els.fileIas?.files?.[0];
+    if (!file) return;
+
+    els.btnImportarIas.disabled = true;
+    setIasStatus("loading", "⏳ Procesando CSV… esto puede tomar unos segundos.");
+    if (els.iasBadge) { els.iasBadge.textContent = "Procesando…"; els.iasBadge.className = "ias-badge"; }
+
+    const fd = new FormData();
+    fd.append("ias_csv", file);
+
+    try {
+      const resp = await fetch("/api/etl-ias", { method: "POST", body: fd });
+      const data = await resp.json();
+
+      if (!resp.ok || data.error) throw new Error(data.error || `HTTP ${resp.status}`);
+
+      const ajustes = data.ajustes_mensuales || {};
+      const nMeses  = Object.keys(ajustes).length;
+      const filas   = data.filas_procesadas ?? "?";
+      setIasStatus("ok",
+        `✅ ${typeof filas === "number" ? filas.toLocaleString() : filas} filas procesadas · ${nMeses} meses cargados · ` +
+        (data.mensaje || "entorno actualizado")
+      );
+      if (els.iasBadge) { els.iasBadge.textContent = "Datos reales cargados"; els.iasBadge.className = "ias-badge loaded"; }
+      renderIasPreview(ajustes);
+      // Actualizar también el ETL file list
+      if (_etlArchivosBackend.ias) {
+        _etlArchivosBackend.ias.existe = true;
+        etlState.ias = { ok: true, msg: "Importado vía panel IAS" };
+        renderEtlFileList(_etlArchivosBackend);
+      }
+      setTimeout(verifyBackend, 800);
+
+    } catch (err) {
+      setIasStatus("err", `❌ Error: ${err.message}`);
+      if (els.iasBadge) { els.iasBadge.textContent = "Error al importar"; els.iasBadge.className = "ias-badge error"; }
+    } finally {
+      els.btnImportarIas.disabled = false;
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // INIT & EVENT LISTENERS
 // ═══════════════════════════════════════════════════════════════════════════════
+
 function init() {
   initializeDOM();
 
@@ -1214,17 +1726,11 @@ function init() {
     els.pesoAmbiental.addEventListener("input", () => syncClimateControls("weight"));
   }
 
-  // File inputs
-  const fileMap = {
-    fileEodSemana: "eodSemana", fileEodSabado: "eodSabado",
-    fileVmrc: "vmrc", fileVerificacion: "verificacion", fileContaminantes: "contaminantes",
-  };
-  Object.entries(fileMap).forEach(([elKey, stateKey]) => {
-    els[elKey]?.addEventListener("change", e => {
-      state.files[stateKey] = e.target.files?.[0] || null;
-      updateEnvSummary();
-    });
-  });
+  // Panel ETL dinámico — carga estado de archivos desde el backend
+  cargarEstadoArchivos();
+
+  // IAS file input (panel separado)
+  initIasPanel();
 
   // Reset defaults
   els.btnResetDefaults?.addEventListener("click", () => applyConfigToUI(state.defaults || FALLBACK_DEFAULTS));

@@ -40,25 +40,37 @@
 
       <!-- MODO AVANZADO -->
       <div id="panelAdvanced" class="hidden">
-        <p class="adv-note small">Sube las fuentes reales del ETL. Al ejecutar el modelo, el backend usará esos archivos para regenerar <code>data/entorno_cdmx.json</code> antes de correr el AG.</p>
-        <div class="grid-2" style="margin-top:10px">
-          <label>EOD entre semana (XLSX o CSV)
-            <input type="file" id="fileEodSemana" accept=".xlsx,.csv" />
-          </label>
-          <label>EOD sábado (XLSX)
-            <input type="file" id="fileEodSabado" accept=".xlsx" />
-          </label>
-          <label>VMRC valor 09 (CSV)
-            <input type="file" id="fileVmrc" accept=".csv" />
-          </label>
-          <label>Verificación automotriz (CSV)
-            <input type="file" id="fileVerificacion" accept=".csv" />
-          </label>
-          <label>Contaminantes 2025 (CSV)
-            <input type="file" id="fileContaminantes" accept=".csv" />
-          </label>
+        <p class="adv-note small">
+          Sube los archivos fuente del ETL. Cada archivo se <strong>valida</strong> antes de guardarse
+          con su nombre canónico en la carpeta correcta. Si la estructura no coincide, el backend
+          te avisa qué columnas faltan.
+        </p>
+        <div id="etlFileList" class="etl-file-list">
+          <!-- Generado dinámicamente por JS con estado desde /api/archivos -->
+          <p class="small muted">Cargando estado de archivos…</p>
         </div>
-        <div class="small" id="envSummary" style="margin-top:8px">Sin fuentes ETL cargadas.</div>
+        <!-- IAS — solo en modo Datos Crudos -->
+        <div class="ias-panel" id="iasPanel" style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--line)">
+          <div class="ias-header-row">
+            <span class="etl-file-name">Índice de Aire y Salud (IAS)</span>
+            <span class="ias-badge" id="iasBadge">Sin datos reales</span>
+          </div>
+          <p class="small" style="margin:4px 0 8px">
+            CSV del SIMAT CDMX (Condicion horaria 2024).
+            Al importarlo, el backend actualiza los factores IMECA mensuales en <code>entorno_cdmx.json</code>.
+          </p>
+          <div class="ias-upload-row">
+            <label class="ias-file-label">
+              <input type="file" id="fileIas" accept=".csv" />
+              <span id="iasFileName">Seleccionar archivo IAS .csv</span>
+            </label>
+            <button class="btn-sm-primary" id="btnImportarIas" disabled>Importar</button>
+          </div>
+          <div id="iasStatus" class="ias-status hidden"></div>
+          <div id="iasPreview" class="ias-preview hidden"></div>
+        </div>
+
+        <div class="small" id="envSummary" style="margin-top:8px"></div>
       </div>
 
       <!-- Fechas — siempre visibles -->
@@ -170,7 +182,7 @@
 
       <pre id="logBox" class="log" aria-live="polite"></pre>
 
-      <!-- Stats strip -->
+      <!-- Stats strip — muestra días restringidos del color Azul (placas 0 y 9) -->
       <div id="statsStrip" class="stats-strip hidden">
         <div class="stat-item">
           <span class="stat-label">Zona óptima</span>
@@ -181,16 +193,16 @@
           <span class="stat-value" id="statFitness">—</span>
         </div>
         <div class="stat-item">
-          <span class="stat-label">Restricción H1</span>
+          <span class="stat-label">H0 Azul (0,9)</span>
+          <span class="stat-value" id="statH0">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">H1 Azul (0,9)</span>
           <span class="stat-value" id="statH1">—</span>
         </div>
         <div class="stat-item">
-          <span class="stat-label">Restricción H2</span>
+          <span class="stat-label">H2 Azul (0,9)</span>
           <span class="stat-value" id="statH2">—</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">Restricción H00</span>
-          <span class="stat-value" id="statH00">—</span>
         </div>
       </div>
 
@@ -325,7 +337,7 @@
         <div class="chart-header">
           <span class="chart-title">Mejor Individuo Encontrado — Detalle Completo</span>
         </div>
-        <div id="individuoDetail" class="individuo-wrap"></div>
+        <div id="individuoDetail"></div>
       </div>
     </section>
 
@@ -333,6 +345,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="hnc_ui.js?v=20260409-2"></script>
+  <script src="hnc_ui.js?v=20260410-3"></script>
 </body>
 </html>

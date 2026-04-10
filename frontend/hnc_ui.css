@@ -138,7 +138,7 @@ button.ghost { background:#fff; }
 .demo-veh-card .veh-name { font-weight:700; font-size:0.85rem; }
 .demo-veh-card .veh-total { font-size:1.05rem; font-weight:700; color:var(--accent); }
 .small-btn { font-size:0.85rem; padding:5px 10px; }
-.adv-note { background:#fffbeb; border:1px solid #f0c050; border-radius:8px; padding:8px 10px; color:#7a5c10; margin:0; }
+.adv-note { background:transparent; border:none; padding:0; color:var(--muted); margin:0; }
 
 /* IMECA SLIDER */
 .imeca-block { background:#f8fafb; border:1px solid var(--line); border-radius:10px; padding:12px; }
@@ -292,3 +292,109 @@ button.ghost { background:#fff; }
 
 .dl-btn { background:#f0fdf4; color:#15803d; border-color:#bbf7d0; }
 .dl-btn:hover { background:#dcfce7; }
+
+/* ── IAS Panel ────────────────────────────────────────────────────────────── */
+.ias-header-row {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 2px;
+}
+.ias-title { font-size: 0.92rem; font-weight: 700; color: var(--ink); }
+.ias-badge {
+  font-size: 0.72rem; font-weight: 700; padding: 2px 10px;
+  border-radius: 999px; background: #e5e7eb; color: #6b7280;
+  white-space: nowrap;
+}
+.ias-badge.loaded {
+  background: #d1fae5; color: #065f46;
+}
+.ias-badge.error {
+  background: #fee2e2; color: #991b1b;
+}
+.ias-upload-row {
+  display: flex; align-items: center; gap: 8px; margin-top: 4px;
+}
+.ias-file-label {
+  display: flex; align-items: center; gap: 8px; flex: 1;
+  background: #f8fafc; border: 1px dashed #cbd5e1;
+  border-radius: 8px; padding: 7px 12px; cursor: pointer;
+  font-size: 0.82rem; color: var(--muted); transition: border-color .2s;
+}
+.ias-file-label:hover { border-color: var(--accent); color: var(--accent); }
+.ias-file-label input[type="file"] { display: none; }
+#iasFileName { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn-sm-primary {
+  background: var(--accent); color: #fff; border: none;
+  border-radius: 8px; padding: 8px 16px; font-size: 0.82rem;
+  font-weight: 600; cursor: pointer; white-space: nowrap; transition: opacity .2s;
+}
+.btn-sm-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-sm-primary:not(:disabled):hover { opacity: 0.88; }
+.ias-status {
+  margin-top: 8px; padding: 8px 12px; border-radius: 8px;
+  font-size: 0.82rem; font-weight: 600;
+}
+.ias-status.ok  { background: #d1fae5; color: #065f46; }
+.ias-status.err { background: #fee2e2; color: #991b1b; }
+.ias-status.loading { background: #eff6ff; color: #1d4ed8; }
+.ias-preview {
+  margin-top: 10px; overflow-x: auto;
+}
+.ias-table {
+  width: 100%; border-collapse: collapse; font-size: 0.79rem;
+}
+.ias-table th {
+  background: #1a1a2e; color: #fff; padding: 5px 8px;
+  font-weight: 600; text-align: center; white-space: nowrap;
+}
+.ias-table td {
+  padding: 4px 8px; border-bottom: 1px solid #eef2f4;
+  text-align: center; vertical-align: middle;
+}
+.ias-table tr:nth-child(even) td { background: #f8fafc; }
+.ias-imeca-bar {
+  display: inline-block; height: 8px; border-radius: 4px;
+  vertical-align: middle; margin-left: 4px;
+}
+
+/* ── ETL File List ───────────────────────────────────────────────────────── */
+.etl-file-list {
+  display: flex; flex-direction: column; gap: 8px; margin-top: 10px;
+}
+.etl-file-row {
+  display: grid;
+  grid-template-columns: 18px 1fr auto auto;
+  align-items: center; gap: 10px;
+  background: #f8fafc; border: 1px solid #e2e8f0;
+  border-radius: 8px; padding: 8px 12px;
+  font-size: 0.82rem; transition: border-color .2s;
+}
+.etl-file-row.ok    { /* sin color de fondo verde — punto y botón mantienen su color */ }
+.etl-file-row.error { border-color: #fca5a5; background: #fff5f5; }
+.etl-file-row.loading { border-color: #93c5fd; background: #eff6ff; }
+.etl-status-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  background: #d1d5db;
+}
+.etl-file-row.ok    .etl-status-dot { background: #22c55e; }
+.etl-file-row.error .etl-status-dot { background: #ef4444; }
+.etl-file-row.loading .etl-status-dot { background: #3b82f6; animation: blink 1s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+.etl-file-info { min-width: 0; }
+.etl-file-name  { font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.etl-file-desc  { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+.etl-file-size  { font-size: 0.72rem; color: #6b7280; white-space: nowrap; }
+.etl-upload-btn {
+  background: var(--accent); color: #fff; border: none;
+  border-radius: 6px; padding: 5px 10px; font-size: 0.75rem;
+  font-weight: 600; cursor: pointer; white-space: nowrap;
+  transition: opacity .2s;
+}
+.etl-upload-btn:hover { opacity: 0.88; }
+.etl-msg {
+  grid-column: 1 / -1; font-size: 0.74rem; padding: 4px 6px;
+  border-radius: 4px; margin-top: 2px;
+}
+.etl-msg.ok  { background: #dcfce7; color: #166534; }
+.etl-msg.err { background: #fee2e2; color: #991b1b; }
+
+/* Sección 5: individuo detail — ocupa todo el ancho disponible */
+#individuoDetail { width: 100%; box-sizing: border-box; }
