@@ -7,27 +7,24 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-# ============================================================================
-# CONFIGURACIÓN BASE
-# ============================================================================
 GENES            = 16
 DEFAULT_POP_SIZE = 100
 DEFAULT_GENERATIONS = 120
 
 DEFAULT_PARAMS = {
-    "pop_size": 100, "generaciones": 120, "mutacion": 0.05, "elitismo": 2,
+    "pop_size": 100, "generaciones": 120, "mutacion": 0.05, "elitismo": 1,
     "peso_equidad": 1, "peso_ambiental_critico": 2.2, "peso_economico": 1.55,
     "nivel_imeca": 150, "start_month": "2026-04", "meses": 6,
-    "estrategia_seleccion": "ruleta",   # ruleta | torneo | ranking
-    "estrategia_cruza":     "un_punto", # un_punto | dos_puntos | uniforme
-    "estrategia_mutacion":  "uniforme", # uniforme | gaussiana | reset
+    "prob_cruza": 0.60,
+    "estrategia_seleccion": "ruleta",
+    "estrategia_cruza":     "uniforme",
+    "estrategia_mutacion":  "uniforme",
 }
 
 GRUPOS_PLACA = {"Amarillo": [5, 6], "Rosa": [7, 8], "Rojo": [3, 4], "Verde": [1, 2], "Azul": [9, 0]}
 HOLOGRAMAS   = ["H00", "H0", "H1", "H2"]
 COLOR_ORDER  = ["Verde", "Amarillo", "Rosa", "Rojo", "Azul"]
 
-# ── Días: una sola fuente de verdad ─────────────────────────────────────────
 _LOWER  = ["lunes", "martes", "miercoles", "jueves", "viernes"]
 _TITULO = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
 DIAS_SEMANA_LOWER = _LOWER
@@ -35,25 +32,10 @@ WEEKDAY_INDEX     = {d: i for i, d in enumerate(_LOWER)}
 LOWER_TO_TITULO   = dict(zip(_LOWER, _TITULO))
 LOWER_DIA         = dict(zip(_TITULO, _LOWER))
 
-# ── Factores de contaminación → fitness ─────────────────────────────────────
 CONTAMINATION_FACTORS: Dict[str, float] = {
     "buena": 0.35, "aceptable": 0.90, "mala": 1.45, "muy_mala": 2.20, "extrema": 2.90,
 }
 
-# ── Límites de política por nivel ────────────────────────────────────────────
-# El AG decide DENTRO de estos rangos; la fitness function lo guía.
-#
-# Zona y horario para H1 y H2 son decididos libremente por el AG en todas
-# las combinaciones válidas:  (total|centro) × (5-22|5-16)
-# La fitness los pondera vía cov_h1 / cov_h2_avg — mayor contaminación →
-# mayor cobertura premiada → el AG converge a total+5-22.
-#
-# Campos:
-#   h2_total   : True solo en extrema (restriccion_total estructural)
-#   h0_wd_max  : máximo días de restricción semanal para H0
-#   h1_sab     : (min, max) sábados H1  —  None = total_sab
-#   h2_sab_max : techo de sábados H2    —  None = total_sab
-#   extras     : (min, max) días extra en H2  (máx absoluto = 2)
 _CCONFIG: Dict[str, Any] = {
     "buena":    {"h2_total":False, "h0_wd_max":0,
                  "h1_sab":(0, 1),    "h2_sab_max":3,    "extras":(0, 0),
@@ -72,75 +54,22 @@ _CCONFIG: Dict[str, Any] = {
                  "h1_light_max":0,   "h2_light_max":0},
 }
 
-def _to_lower_zona(raw: Any) -> str:
-    """Normaliza zona a minúsculas ('total' | 'centro')."""
-    return "centro" if "entro" in str(raw) else "total"
-
-def _rotate_colors(colors: List[str], shift: int) -> List[str]:
-    if not colors:
-        return []
-    k = shift % len(colors)
-    return colors[k:] + colors[:k]
-
-def contamination_from_factor(factor_mensual: float) -> str:
-    return min(CONTAMINATION_FACTORS, key=lambda c: abs(CONTAMINATION_FACTORS[c] - float(factor_mensual)))
-
-def _normalizar_decisiones_ligeras(contaminacion: str, decisiones_ag: Dict[str, Any]) -> Dict[str, Any]:
-    cfg = _CCONFIG.get(contaminacion, _CCONFIG["extrema"])
-    h1_cap = int(cfg.get("h1_light_max", 0))
-    h2_cap = int(cfg.get("h2_light_max", 0))
-
-    def clean_order(raw: Any) -> List[str]:
-        if not isinstance(raw, list):
-            return COLOR_ORDER[:]
-        cleaned = [c for c in raw if c in COLOR_ORDER]
-        return cleaned if len(cleaned) == len(COLOR_ORDER) else COLOR_ORDER[:]
-
-    order_h1 = clean_order(decisiones_ag.get("orden_prioridad_ligero_h1", COLOR_ORDER))
-    order_h2 = clean_order(decisiones_ag.get("orden_prioridad_ligero_h2", COLOR_ORDER))
-
-    req_h1 = max(0, min(5, int(decisiones_ag.get("n_light_h1", 0))))
-    req_h2 = max(0, min(5, int(decisiones_ag.get("n_light_h2", 0))))
-    allow_h1 = min(h1_cap, req_h1)
-    allow_h2 = min(h2_cap, req_h2)
-
-    h1_light = set(order_h1[:allow_h1])
-    h2_light = set(order_h2[:allow_h2])
-
-    h1_hora_por_color = {c: (16 if c in h1_light else 22) for c in COLOR_ORDER}
-    h1_zona_por_color = {c: ("Centro" if c in h1_light else "Total") for c in COLOR_ORDER}
-    h2_hora_por_color = {c: (16 if c in h2_light else 22) for c in COLOR_ORDER}
-    h2_zona_por_color = {c: ("Centro" if c in h2_light else "Total") for c in COLOR_ORDER}
-
-    return {
-        "h1_hora_por_color": h1_hora_por_color,
-        "h1_zona_por_color": h1_zona_por_color,
-        "h2_hora_por_color": h2_hora_por_color,
-        "h2_zona_por_color": h2_zona_por_color,
-        "n_light_h1_real": allow_h1,
-        "n_light_h2_real": allow_h2,
-    }
-
-def _coverage_promedio(hora_por_color: Dict[str, int], zona_por_color: Dict[str, str]) -> float:
-    return sum(
-        (1.0 if _to_lower_zona(zona_por_color.get(c, "Total")) == "total" else 0.5) *
-        (1.0 if int(hora_por_color.get(c, 22)) == 22 else 11.0 / 17.0)
-        for c in COLOR_ORDER
-    ) / float(len(COLOR_ORDER))
-
 PROJECT_ROOT   = Path(__file__).resolve().parent.parent
 ENTORNO_PATH   = PROJECT_ROOT / "data" / "entorno_cdmx.json"
 RESULTADO_PATH = PROJECT_ROOT / "data" / "resultado_ag_hnc.json"
+EPSILON        = 1e-6
 
 
-# ============================================================================
-# UTILIDADES GENERALES
-# ============================================================================
 def contamination_to_factor(c: str) -> float:
     return CONTAMINATION_FACTORS.get(c, 1.0)
 
 def dia_base_por_defecto(color: str) -> str:
     return _LOWER[COLOR_ORDER.index(color)]
+
+def gene_value_for_weekday(dia_lower: str) -> float:
+    """Mapea un día válido a un valor de gen que decodifica de forma estable a ese día."""
+    idx = WEEKDAY_INDEX.get(dia_lower, 0)
+    return (idx + 0.5) / 5.0
 
 def clamp01(x: float) -> float:
     return max(0.0, min(1.0, x))
@@ -159,9 +88,6 @@ def days_in_month(year: int, month: int) -> int:
 def total_saturdays(year: int, month: int) -> int:
     return sum(1 for w in monthcalendar(year, month) if w[5] != 0)
 
-def nth_weekday_dates(year: int, month: int, weekday: int, count: int) -> List[str]:
-    return all_weekday_dates(year, month, weekday)[:max(0, count)]
-
 def all_weekday_dates(year: int, month: int, weekday: int) -> List[str]:
     if not 0 <= weekday <= 6:
         return []
@@ -170,14 +96,6 @@ def all_weekday_dates(year: int, month: int, weekday: int) -> List[str]:
         for week in monthcalendar(year, month)
         for day_num in [week[weekday]] if day_num
     ]
-
-def weekly_restriction_dates(year: int, month: int, base_wd: int, days_per_week: int) -> List[str]:
-    if days_per_week <= 0:
-        return []
-    dates = list(all_weekday_dates(year, month, base_wd))
-    for offset in range(1, min(days_per_week, 3)):
-        dates.extend(all_weekday_dates(year, month, (base_wd + offset) % 5))
-    return sorted(set(dates))
 
 def color_month_salt(year: int, month: int, color: str) -> int:
     ci = COLOR_ORDER.index(color) if color in COLOR_ORDER else 0
@@ -274,30 +192,42 @@ def generar_asignaciones_mensuales_desde_base(
     return [{c: perm[i] for i, c in enumerate(COLOR_ORDER)} for perm in seleccion[:meses_count]]
 
 
-# ============================================================================
-# CONSTRUCCIÓN DE REGLAS POR MES
-# ============================================================================
 def construir_reglas_mes(
     year: int, month: int, contaminacion: str,
     color_to_day_lower: Dict[str, str],
     ag_decisions: Optional[Dict[str, Any]] = None,
     nivel_imeca: float = 150.0,
 ) -> Dict[str, Any]:
+    def _normalizar_ligeras(d_ag: Dict[str, Any]) -> Dict[str, Any]:
+        """Resuelve cuántos colores aplican horario/zona reducida según el nivel de contaminación."""
+        cfg_l = _CCONFIG.get(contaminacion, _CCONFIG["extrema"])
+        h1_cap, h2_cap = int(cfg_l.get("h1_light_max", 0)), int(cfg_l.get("h2_light_max", 0))
+        def clean(raw: Any) -> List[str]:
+            cl = [c for c in raw if c in COLOR_ORDER] if isinstance(raw, list) else []
+            return cl if len(cl) == len(COLOR_ORDER) else COLOR_ORDER[:]
+        o1 = clean(d_ag.get("orden_prioridad_ligero_h1", COLOR_ORDER))
+        o2 = clean(d_ag.get("orden_prioridad_ligero_h2", COLOR_ORDER))
+        a1 = min(h1_cap, max(0, min(5, int(d_ag.get("n_light_h1", 0)))))
+        a2 = min(h2_cap, max(0, min(5, int(d_ag.get("n_light_h2", 0)))))
+        s1, s2 = set(o1[:a1]), set(o2[:a2])
+        return {
+            "h1_hora_por_color": {c: (16 if c in s1 else 22) for c in COLOR_ORDER},
+            "h1_zona_por_color": {c: ("Centro" if c in s1 else "Total") for c in COLOR_ORDER},
+            "h2_hora_por_color": {c: (16 if c in s2 else 22) for c in COLOR_ORDER},
+            "h2_zona_por_color": {c: ("Centro" if c in s2 else "Total") for c in COLOR_ORDER},
+        }
+
     ts  = total_saturdays(year, month)
     cfg = _CCONFIG.get(contaminacion, _CCONFIG["extrema"])
 
-    # Valores estructurales fijos
     h2_total  = cfg["h2_total"]
     h0_wd_max = cfg["h0_wd_max"]
 
-    # Topes numéricos del nivel
     h1_min, h1_max_cfg = cfg["h1_sab"]
     h1_max = ts if h1_max_cfg is None else min(ts, h1_max_cfg)
     h2_max = ts if cfg["h2_sab_max"] is None else min(ts, cfg["h2_sab_max"])
     ex_min, ex_max = cfg["extras"]
 
-    # ── Decisiones del AG ────────────────────────────────────────────────────
-    # Números: sábados, extras, días H0
     if ag_decisions:
         ag_h1 = int(ag_decisions.get("sabados_h1",       h1_max))
         ag_h2 = int(ag_decisions.get("sabados_h2",       h2_max))
@@ -311,10 +241,8 @@ def construir_reglas_mes(
     extras_per_color = max(ex_min, min(ex_max, ag_ex))
     h0_weekday_count = min(h0_wd_max, h0_limits_from_imeca(nivel_imeca)[0], ag_h0)
 
-    # Zona y horario: H1 y H2 por color, con límites de "ligeros" por nivel.
-    #   H0/H00 → siempre total + 5-22 (contingencias, no se suavizan)
     if ag_decisions:
-        norm_light = _normalizar_decisiones_ligeras(contaminacion, ag_decisions)
+        norm_light = _normalizar_ligeras(ag_decisions)
         h1_hora_map: Dict[str, int] = norm_light["h1_hora_por_color"]
         h1_zona_map: Dict[str, str] = norm_light["h1_zona_por_color"]
         h2_hora_map: Dict[str, int] = norm_light["h2_hora_por_color"]
@@ -339,25 +267,19 @@ def construir_reglas_mes(
                                          salt=color_month_salt(year, month, f"h0-{color}"),
                                          phase_bias=bias)
 
-        # H00 siempre limpio y sin restricción de horario/zona variable
         h00_por_color[color] = {"dia_base": dia, "horario": [5, 22], "zona": "total",
                                  "fechas_restriccion": [], "sabados": []}
-        # H0: contingencia — siempre total + 5-22
         h0_por_color[color]  = {"dia_base": dia, "horario": [5, 22], "zona": "total",
                                  "fechas_restriccion": h0_dates, "sabados": []}
-        # H1: zona y hora decididas por el AG por color (con topes por nivel)
         h1_por_color[color]  = {"dia_base": dia, "sabados": sat_list(ts, h1_sab),
                      "horario": [5, int(h1_hora_map.get(color, 22))],
-                     "zona": _to_lower_zona(h1_zona_map.get(color, "Total"))}
+                     "zona": "centro" if "entro" in str(h1_zona_map.get(color, "Total")) else "total"}
 
-        # H2: zona y hora decididas por el AG por color (con topes por nivel)
         h2_hora_c = h2_hora_map.get(color, 22)
-        h2_zona_c = _to_lower_zona(h2_zona_map.get(color, "Total"))
+        h2_zona_c = "centro" if "entro" in str(h2_zona_map.get(color, "Total")) else "total"
         h2_item: Dict[str, Any] = {"dia_base": dia, "sabados": sat_list(ts, h2_sab),
                                     "horario": [5, h2_hora_c], "zona": h2_zona_c}
         if h2_total:
-            # restriccion_total → siempre total + 5-22 (define "restricción total")
-            # fechas_restriccion solo aparece si hay extras (máx 2 días adicionales)
             h2_item.update({
                 "restriccion_total": True,
                 "sabados": sat_list(ts, ts),
@@ -365,14 +287,12 @@ def construir_reglas_mes(
                 "zona":    "total",
             })
         if extras_per_color > 0:
-            # fechas_restriccion = los días extra fuera del patrón base (máx 2)
             h2_item["fechas_restriccion"] = spread_weekday_dates(
                 year, month, (wd + 1) % 5, extras_per_color,
                 salt=color_month_salt(year, month, color), phase_bias=bias,
             )
         h2_por_color[color] = h2_item
 
-    # Normalizar fechas_restriccion de H2: asegura que no caigan en el día base
     if extras_per_color > 0:
         for color in COLOR_ORDER:
             dia   = color_to_day_lower.get(color, dia_base_por_defecto(color))
@@ -387,7 +307,6 @@ def construir_reglas_mes(
                     year, month, (wd + 1) % 5, extras_per_color, salt=salt, phase_bias=bias,
                 ))[:extras_per_color]
 
-            # Filtrar: los extras no deben coincidir con el día base del color
             filtradas = [
                 iso for iso in candidatos
                 if _LOWER[date(*(int(x) for x in iso.split("-"))).weekday()] != dia
@@ -399,7 +318,6 @@ def construir_reglas_mes(
                     if len(filtradas) >= extras_per_color:
                         break
 
-            # Máximo 2 fechas extra en H2
             cfg_c["fechas_restriccion"] = filtradas[:min(extras_per_color, 2)]
 
     return {
@@ -411,18 +329,20 @@ def construir_reglas_mes(
     }
 
 
-# ============================================================================
-# DECODIFICACIÓN DEL ADN
-# ============================================================================
-def generar_individuo() -> List[float]:
-    return [random.random() for _ in range(GENES)]
-
 def decodificar_individuo(
     individuo: List[float],
     total_sabados_mes: int = 4,
     nivel_imeca: float = 150.0,
 ) -> Dict[str, Any]:
-    """Decodifica el cromosoma en decisiones concretas de restricción."""
+    """Decodifica el cromosoma en decisiones concretas de restricción (Lamarckiano)."""
+    def _cov(hora: Dict[str, int], zona: Dict[str, str]) -> float:
+        """Cobertura promedio: zona total=1.0/centro=0.5 × horario 5-22=1.0/5-16=11/17."""
+        return sum(
+            (1.0 if "entro" not in str(zona.get(c, "Total")) else 0.5) *
+            (1.0 if int(hora.get(c, 22)) == 22 else 11.0 / 17.0)
+            for c in COLOR_ORDER
+        ) / len(COLOR_ORDER)
+
     r_h00, r_h0, r_h1, r_h2 = sorted(float(g) for g in individuo[0:4])
     ts = total_sabados_mes
 
@@ -431,9 +351,8 @@ def decodificar_individuo(
     phase_h1      = min(4, int(individuo[6] * 5))
     phase_h2      = min(4, int(individuo[7] * 5))
     sabados_h1    = min(ts, int(individuo[8] * (ts + 1)))
-    rango_h2      = max(0, ts - 3)
-    sabados_h2    = max(3, min(ts, 3 + min(rango_h2, int(individuo[9] * (rango_h2 + 1)))))
-    dias_extra_h2 = min(2, int((individuo[10] if len(individuo) > 10 else 0.0) * 3))
+    sabados_h2    = min(ts, int(individuo[9] * (ts + 1)))
+    dias_extra_h2 = min(4, int((individuo[10] if len(individuo) > 10 else 0.0) * 5))
 
     h0_wd_max, h0_sat_max = h0_limits_from_imeca(nivel_imeca)
     h0_weekday_count  = min(h0_wd_max,  int(individuo[0] * (h0_wd_max + 1)))
@@ -446,17 +365,20 @@ def decodificar_individuo(
     repetidos           = len(propuesta.values()) - len(set(propuesta.values()))
     asignacion_reparada = reparar_asignacion_colores_dias(propuesta)
 
+    for idx, color in enumerate(COLOR_ORDER):
+        individuo[11 + idx] = gene_value_for_weekday(asignacion_reparada[color])
+
     colors_asc = [c for c, _ in sorted([(COLOR_ORDER[i], individuo[11 + i]) for i in range(5)], key=lambda x: x[1])]
-    prio_h1    = _rotate_colors(colors_asc, phase_h1)
-    prio_h2    = _rotate_colors(colors_asc, phase_h2)
+    k1 = phase_h1 % len(colors_asc); prio_h1 = colors_asc[k1:] + colors_asc[:k1]
+    k2 = phase_h2 % len(colors_asc); prio_h2 = colors_asc[k2:] + colors_asc[:k2]
 
     h1_hora_por_color = {c: (16 if i < n_light_h1 else 22) for i, c in enumerate(prio_h1)}
     h1_zona_por_color = {c: ("Centro" if i < n_light_h1 else "Total") for i, c in enumerate(prio_h1)}
     h2_hora_por_color = {c: (16 if i < n_light_h2 else 22) for i, c in enumerate(prio_h2)}
     h2_zona_por_color = {c: ("Centro" if i < n_light_h2 else "Total") for i, c in enumerate(prio_h2)}
 
-    cov_h1_avg = _coverage_promedio(h1_hora_por_color, h1_zona_por_color)
-    cov_h2_avg = _coverage_promedio(h2_hora_por_color, h2_zona_por_color)
+    cov_h1_avg = _cov(h1_hora_por_color, h1_zona_por_color)
+    cov_h2_avg = _cov(h2_hora_por_color, h2_zona_por_color)
 
     return {
         "R_H00": r_h00, "R_H0": r_h0, "R_H1": r_h1, "R_H2": r_h2,
@@ -488,367 +410,298 @@ def decodificar_individuo(
     }
 
 
-# ============================================================================
-# FUNCIÓN DE FITNESS
-# ============================================================================
-def funcion_objetivo(
-    individuo: List[float],
-    factor_mensual: float,
-    factor_sabado: float = 1.0,
-    total_sabados: int = 4,
-    nivel_imeca: float = 150.0,
-) -> float:
+
+# §1.4.2
+def FuncionInicializacion(pop_size: int) -> List[List[float]]:
     """
-    Evalúa el cromosoma con el contexto real del mes.
+    Genera la población inicial de `pop_size` individuos de forma aleatoria.
 
-    beneficio = nivel_restriccion × factor_mensual  → sube con contaminación
-    costo     = cuadrático                          → penaliza el exceso
-    factor_costo mayor cuando contaminación baja    → inhibir restricciones innecesarias
+    Cada individuo es un cromosoma de GENES=16 valores reales en [0.0, 1.0].
+    Se eligió representación real (en lugar de binaria) porque las variables
+    de decisión del HNC son continuas o discretas de rango amplio, y permite
+    aplicar mutación gaussiana de forma natural.
+
+    Estructura del cromosoma:
+      gen[0-3]   → umbrales que determinan el tipo de restricción por holograma
+                   (H00 / H0 / H1 / H2); se ordenan de menor a mayor
+      gen[4]     → fracción de colores H1 con horario/zona reducido (0-5 colores)
+      gen[5]     → fracción de colores H2 con horario/zona reducido (0-5 colores)
+      gen[6]     → fase de rotación del orden de prioridad en H1
+      gen[7]     → fase de rotación del orden de prioridad en H2
+      gen[8]     → número de sábados de restricción H1  ∈ [0, total_sábados]
+      gen[9]     → número de sábados de restricción H2  ∈ [0, total_sábados]
+      gen[10]    → días extra de restricción H2          ∈ [0, 4]
+      gen[11-15] → día base de la semana por color (Verde / Amarillo / Rosa /
+                   Rojo / Azul); se repara si hay colisiones (Lamarckismo)
     """
-    sol  = decodificar_individuo(individuo, total_sabados, nivel_imeca)
-    d_ag = sol["decisiones_ag"]
-    contaminacion = contamination_from_factor(factor_mensual)
-    norm_light = _normalizar_decisiones_ligeras(contaminacion, d_ag)
-
-    sab_h1, sab_h2, extras = d_ag["sabados_h1"], d_ag["sabados_h2"], d_ag["dias_extra_h2"]
-    h0_weekdays  = d_ag.get("h0_weekday_count", 0)
-    h0_sats      = d_ag.get("h0_saturday_count", 0)
-    h0_wd_max    = max(1, d_ag.get("h0_weekday_max", 0))
-    h0_sat_max   = max(1, d_ag.get("h0_saturday_max", 0))
-
-    cov_h1 = _coverage_promedio(norm_light["h1_hora_por_color"], norm_light["h1_zona_por_color"])
-    cov_h2 = _coverage_promedio(norm_light["h2_hora_por_color"], norm_light["h2_zona_por_color"])
-
-    h2_extra_sats = sab_h2 - 3
-    h2_max_extra  = max(1, total_sabados - 3)
-    h1_max_sats   = max(1, total_sabados)
-
-    W_H0_WD, W_H0_SAT, W_H1, W_H2, W_EX = 0.07, 0.04, 0.28, 0.32, 0.29
-    nivel_restriccion = (
-          (h0_weekdays   / h0_wd_max)    * W_H0_WD
-        + (h0_sats       / h0_sat_max)   * W_H0_SAT
-        + (sab_h1        / h1_max_sats)  * W_H1 * cov_h1
-        + (h2_extra_sats / h2_max_extra) * W_H2 * cov_h2
-        + (extras        / 2.0)          * W_EX * cov_h2
-    )
-    beneficio = nivel_restriccion * factor_mensual * 2.5
-
-    costo = (
-          (h0_weekdays   ** 1.3) * 0.14
-        + (h0_sats       ** 1.3) * 0.18
-        + (sab_h1        ** 1.5) * 0.08 * cov_h1
-        + (h2_extra_sats ** 1.5) * 0.40 * cov_h2
-        + (extras        ** 1.5) * 0.35 * cov_h2
-    ) * (1.0 + (factor_sabado - 1.0) * 0.40)
-
-    factor_costo  = 2.0 - clamp01(factor_mensual / 1.8)
-    factor_alivio = max(0.0, 1.0 - clamp01(factor_mensual / 1.8)) ** 2
-
-    MAX_LIGHTER = 1.0 - 0.5 * 11.0 / 17.0
-    lighter     = clamp01((1.0 - cov_h2) / MAX_LIGHTER)
-    alivio_h2   = factor_alivio * 4.0 * lighter * (1.0 - lighter) * 0.35
-    alivio_h1   = factor_alivio * (1.0 - cov_h1) * 0.28
-    beneficio_alivio = (alivio_h1 + alivio_h2) * 2.5
-
-    fitness = (beneficio + beneficio_alivio - costo * factor_costo) * 1000.0
-
-    dias_repetidos = int(sol.get("violaciones_pre_reparacion", {}).get("dias_repetidos", 0))
-    if dias_repetidos:
-        fitness -= 500.0 * dias_repetidos
-    return float(fitness)
+    return [[random.random() for _ in range(GENES)] for _ in range(pop_size)]
 
 
-
-
-# ============================================================================
-# FÓRMULAS EXACTAS DEL PROYECTO (PDF spec)
-# ============================================================================
-EPSILON = 1e-6  # constante de seguridad contra división por cero
-
-def _ri_efectiva(decisiones_ag: Dict[str, Any], total_days: int, total_sab: int,
-                 entorno: Dict[str, Any]) -> Dict[str, float]:
-    """
-    Calcula la Tasa de Restricción efectiva Ri ∈ [0,1] para cada holograma,
-    partiendo de las decisiones del AG decodificadas.
-    """
-    h0_wd   = int(decisiones_ag.get("h0_weekday_count", 0))
-    h1_sabs = int(decisiones_ag.get("sabados_h1", 0))
-    h2_sabs = int(decisiones_ag.get("sabados_h2", 0))
-    h2_ex   = int(decisiones_ag.get("dias_extra_h2", 0))
-    cov_h1  = float(decisiones_ag.get("cov_h1_avg", 1.0))   # zona/hora factor
-    cov_h2  = float(decisiones_ag.get("cov_h2_avg", 1.0))
-    cum     = float(entorno.get("cumplimiento_ciudadano", 0.85))
-
-    weekdays_m = max(1, total_days - total_sab)          # días hábiles en el mes
-    # H2 se restringe 1 día/semana por color → ~weekdays_m/5 días
-    h2_dias_base = weekdays_m / 5.0
-    h1_dias_base = weekdays_m / 5.0
-
-    R = {
-        "H00": 0.0,                                                       # exentos
-        "H0":  cum * (h0_wd / max(1, total_days)) * 1.0,                  # contingencia
-        "H1":  cum * ((h1_dias_base + h1_sabs) / total_days) * cov_h1,   # verificación reciente
-        "H2":  cum * ((h2_dias_base + h2_sabs + h2_ex) / total_days) * cov_h2, # sin verificar
-    }
-    return {k: max(0.0, min(1.0, v)) for k, v in R.items()}
-
-
-def _zona_factor(decisiones_ag: Dict[str, Any], entorno: Dict[str, Any]) -> float:
-    """Factor de zona promedio para H2 (Centro=0.35, Total=1.0)."""
-    factores = entorno.get("factores_zona", {"Total": 1.0, "Centro": 0.35})
-    zonas = decisiones_ag.get("h2_zona_por_color", {})
-    if not zonas:
-        return 1.0
-    total = sum(
-        factores.get(z.capitalize() if isinstance(z, str) else "Total", 1.0)
-        for z in zonas.values()
-    )
-    return total / len(zonas)
-
-
-def calcular_emisiones(R: Dict[str, float], entorno: Dict[str, Any]) -> float:
-    """
-    E = Σ_i [ Total_i × (1 - R_i) × EF_i × D ]
-    Emisiones totales de los vehículos que SÍ circulan (g/día).
-    [Objetivo: Minimizar]
-    """
-    vehiculos = entorno.get("vehiculos", {})
-    D = float(entorno.get("distancia_promedio_km", 24.0))
-    E = sum(
-        float(v.get("total", 0)) * (1.0 - R.get(holo, 0.0))
-        * float(v.get("ef", 1.0)) * D
-        for holo, v in vehiculos.items()
-    )
-    return max(E, EPSILON)
-
-
-def calcular_impacto_economico(R: Dict[str, float], entorno: Dict[str, Any]) -> float:
-    """
-    IE = Σ_i [ R_i × Total_i × PL_i × C_i ]
-    Costo económico de los viajes laborales cancelados.
-    [Objetivo: Minimizar]
-    """
-    vehiculos = entorno.get("vehiculos", {})
-    IE = sum(
-        R.get(holo, 0.0) * float(v.get("total", 0))
-        * float(v.get("p_l", 0.3)) * float(v.get("costo", 1.0))
-        for holo, v in vehiculos.items()
-    )
-    return max(IE, EPSILON)
-
-
-def calcular_velocidad_bpr(R: Dict[str, float], entorno: Dict[str, Any]) -> float:
-    """
-    BPR (Bureau of Public Roads):
-      M = Σ_i [ Total_i × (1 - R_i) ]   # vehículos que SÍ circulan
-      v = v_f / (1 + α × (M / C)^β)
-    [Objetivo: Maximizar]
-    """
-    trafico  = entorno.get("trafico", {})
-    vf       = float(trafico.get("v_f", 45.0))
-    C        = float(trafico.get("capacidad_c", 3_500_000))
-    alpha    = float(trafico.get("alpha", 0.15))
-    beta     = float(trafico.get("beta", 4.0))
-    vehiculos = entorno.get("vehiculos", {})
-    M = sum(
-        float(v.get("total", 0)) * (1.0 - R.get(holo, 0.0))
-        for holo, v in vehiculos.items()
-    )
-    v = vf / (1.0 + alpha * (M / max(C, 1.0)) ** beta)
-    return max(v, EPSILON)
-
-
-def fitness_global_bpr(
+# §1.4.1
+def FuncionAptitud(
     individuo: List[float],
     entorno: Dict[str, Any],
-    total_sabados: int = 4,
-    nivel_imeca: float = 150.0,
+    total_sabados: int,
+    nivel_imeca: float,
     peso_ambiental: float = 2.2,
     peso_economico: float = 1.55,
-    peso_equidad: float = 1.0,
-    nivel_imeca_peso: float = 150.0,
 ) -> float:
     """
-    Función de aptitud global basada en las fórmulas del proyecto:
+    Evalúa la aptitud de un individuo para un mes dado.
 
-        fitness = v / (E × peso_amb + IE × peso_eco + ε) × 10^6
+    El individuo se decodifica en decisiones concretas de restricción vehicular
+    y se calcula la aptitud con base en tres variables de optimización:
 
-    donde:
-      v  = velocidad BPR (maximizar)
-      E  = emisiones (minimizar)
-      IE = impacto económico (minimizar)
+        Aptitud = v / (E × w_amb + IE × w_eco + ε) × 10⁶          (Ec. 1.2)
 
-    Penalización IMECA: si IMECA > umbral, el AG premia más la reducción de E.
+    Variables:
+      v  = velocidad vial promedio  [km/h]        → MAXIMIZAR
+      E  = emisiones totales        [g/día]        → MINIMIZAR
+      IE = impacto económico        [MXN/día]      → MINIMIZAR
+
+    ── Paso 1: decodificar el cromosoma ─────────────────────────────────────
     """
-    sol = decodificar_individuo(individuo, total_sabados, nivel_imeca)
+    sol  = decodificar_individuo(individuo, total_sabados, nivel_imeca)
     d_ag = sol["decisiones_ag"]
     d_ag["cov_h1_avg"] = sol.get("cov_h1_avg", 1.0)
     d_ag["cov_h2_avg"] = sol.get("cov_h2_avg", 1.0)
 
-    total_days = 30  # aproximación mensual
-    R = _ri_efectiva(d_ag, total_days, total_sabados, entorno)
+    dias_mes  = 30
+    cum       = float(entorno.get("cumplimiento_ciudadano", 0.85))
+    h0_wd     = int(d_ag.get("h0_weekday_count", 0))
+    h1_sabs   = int(d_ag.get("sabados_h1", 0))
+    h2_sabs   = int(d_ag.get("sabados_h2", 0))
+    h2_ex     = int(d_ag.get("dias_extra_h2", 0))
+    cov_h1    = float(d_ag.get("cov_h1_avg", 1.0))
+    cov_h2    = float(d_ag.get("cov_h2_avg", 1.0))
+    dias_hab  = max(1, dias_mes - total_sabados)
 
-    E  = calcular_emisiones(R, entorno)
-    IE = calcular_impacto_economico(R, entorno)
-    v  = calcular_velocidad_bpr(R, entorno)
+    R: Dict[str, float] = {
+        "H00": 0.0,
+        "H0" : cum * (h0_wd / max(1, dias_mes)),
+        "H1" : cum * ((dias_hab / 5 + h1_sabs) / dias_mes) * cov_h1,
+        "H2" : cum * ((dias_hab / 5 + h2_sabs + h2_ex) / dias_mes) * cov_h2,
+    }
+    R = {k: max(0.0, min(1.0, v)) for k, v in R.items()}
 
-    # Factor IMECA: escala peso ambiental según nivel de contaminación
+    vehiculos = entorno.get("vehiculos", {})
+    D         = float(entorno.get("distancia_promedio_km", 24.0))
+
+    E = sum(
+        float(v.get("total", 0)) * (1.0 - R.get(h, 0.0))
+        * float(v.get("ef", 1.0)) * D
+        for h, v in vehiculos.items()
+    ) or EPSILON
+
+    IE = sum(
+        R.get(h, 0.0) * float(v.get("total", 0))
+        * float(v.get("p_l", 0.3)) * float(v.get("costo", 1.0))
+        for h, v in vehiculos.items()
+    ) or EPSILON
+
+    trafico = entorno.get("trafico", {})
+    M   = sum(float(v.get("total", 0)) * (1.0 - R.get(h, 0.0)) for h, v in vehiculos.items())
+    vf  = float(trafico.get("v_f",          45.0))
+    C   = float(trafico.get("capacidad_c",   3_500_000))
+    α   = float(trafico.get("alpha",         0.15))
+    β   = float(trafico.get("beta",          4.0))
+    v_bpr = vf / (1.0 + α * (M / max(C, 1.0)) ** β)
+
     factor_imeca = 1.0 + max(0.0, (nivel_imeca - 100) / 100.0) * (peso_ambiental - 1.0)
-
-    fitness = (v / (E * factor_imeca + IE * peso_economico + EPSILON)) * 1e6
-
-    # Penalización por días repetidos (cromosoma inválido)
-    dias_rep = int(sol.get("violaciones_pre_reparacion", {}).get("dias_repetidos", 0))
-    if dias_rep:
-        fitness *= max(0.01, 1.0 - 0.2 * dias_rep)
-
-    return float(fitness)
+    return (v_bpr / (E * factor_imeca + IE * peso_economico + EPSILON)) * 1e6
 
 
-# ============================================================================
-# ESTRATEGIAS DIVERSAS POR ETAPA DEL AG
-# ============================================================================
-
-# ── Selección ────────────────────────────────────────────────────────────────
-def seleccion_torneo(
-    poblacion: List[List[float]], aptitudes: List[float], k: int = 3
+# §1.4.3
+def FuncionGeneracionParejas(
+    poblacion: List[List[float]],
+    aptitudes: List[float],
+    estrategia: str = "ruleta",
 ) -> List[float]:
-    """Selección por torneo: elige k individuos al azar y devuelve el mejor."""
-    indices = random.sample(range(len(poblacion)), min(k, len(poblacion)))
-    ganador = max(indices, key=lambda i: aptitudes[i])
-    return poblacion[ganador][:]
+    """
+    Selecciona UN padre de la población según la estrategia indicada.
+    Llamar dos veces para obtener la pareja completa (padre1, padre2).
+
+    Estrategias implementadas
+    ─────────────────────────
+    "ruleta"  — Selección proporcional a la aptitud.
+                P(i) = aptitud_ajustada(i) / suma_total.
+                Se desplaza el rango si hay aptitudes negativas para garantizar
+                P(i) > 0 en todos los individuos.
+
+    "torneo"  — Se eligen k=3 candidatos al azar y gana el de mayor aptitud.
+                Más robusto que ruleta cuando las aptitudes tienen escala extrema
+                o valores negativos. Mayor k → mayor presión selectiva.
+
+    "ranking" — Se asigna peso p a cada individuo según su posición en el
+                ranking (posición 1 = peor, posición N = mejor).
+                Reduce la dominancia de individuos muy superiores y mantiene
+                mayor diversidad que ruleta cuando el mejor es muy distante.
+    """
+    if estrategia == "ruleta":
+        minimo    = min(aptitudes)
+        offset    = abs(minimo) + 1e-9 if minimo < 0 else 0.0
+        ajustadas = [a + offset for a in aptitudes]
+        total     = sum(ajustadas)
+        if total <= 0:
+            return random.choice(poblacion)[:]
+        r, acum = random.uniform(0.0, total), 0.0
+        for ind, fit in zip(poblacion, ajustadas):
+            acum += fit
+            if acum >= r:
+                return ind[:]
+        return poblacion[-1][:]
+
+    elif estrategia == "torneo":
+        k       = 3
+        indices = random.sample(range(len(poblacion)), min(k, len(poblacion)))
+        ganador = max(indices, key=lambda i: aptitudes[i])
+        return poblacion[ganador][:]
+
+    elif estrategia == "ranking":
+        orden = sorted(range(len(poblacion)), key=lambda i: aptitudes[i])
+        pesos = list(range(1, len(poblacion) + 1))
+        total = sum(pesos)
+        r, acum = random.uniform(0, total), 0.0
+        for pos, idx in enumerate(orden):
+            acum += pesos[pos]
+            if acum >= r:
+                return poblacion[idx][:]
+        return poblacion[orden[-1]][:]
+
+    return random.choice(poblacion)[:]
 
 
-def seleccion_ruleta(
-    poblacion: List[List[float]], aptitudes: List[float]
-) -> List[float]:
-    """Selección proporcional a la aptitud (ruleta)."""
-    return seleccionar_padre_ruleta(poblacion, aptitudes)
-
-
-def seleccion_ranking(
-    poblacion: List[List[float]], aptitudes: List[float]
-) -> List[float]:
-    """Selección por ranking lineal: asigna probabilidades basadas en posición."""
-    n = len(poblacion)
-    orden = sorted(range(n), key=lambda i: aptitudes[i])
-    pesos = [i + 1 for i in range(n)]  # posición 1..n
-    total = sum(pesos)
-    r = random.uniform(0, total)
-    acum = 0.0
-    for pos, idx in enumerate(orden):
-        acum += pesos[pos]
-        if acum >= r:
-            return poblacion[idx][:]
-    return poblacion[orden[-1]][:]
-
-
-# ── Cruzamiento ──────────────────────────────────────────────────────────────
-def cruza_dos_puntos(
-    p1: List[float], p2: List[float], prob: float
+# §1.4.4
+def FuncionCruza(
+    padre1: List[float],
+    padre2: List[float],
+    prob_cruza: float = 0.60,
+    estrategia: str   = "uniforme",
 ) -> Tuple[List[float], List[float]]:
-    """Cruzamiento de dos puntos."""
-    if random.random() >= prob:
-        return p1[:], p2[:]
-    pts = sorted(random.sample(range(1, GENES), 2))
-    a, b = pts
-    h1 = p1[:a] + p2[a:b] + p1[b:]
-    h2 = p2[:a] + p1[a:b] + p2[b:]
+    """
+    Recombina dos padres para producir dos hijos.
+    Si random() ≥ prob_cruza, los padres se copian sin cambios.
+
+    Estrategias implementadas
+    ─────────────────────────
+    "un_punto"   — Se elige un punto de corte aleatorio p ∈ [1, GENES-1].
+                   hijo1 = padre1[:p] + padre2[p:]
+                   hijo2 = padre2[:p] + padre1[p:]
+                   Preserva bloques contiguos de genes (schemata cortos).
+
+    "dos_puntos" — Se eligen dos puntos a < b.  El segmento central se cruza.
+                   hijo1 = padre1[:a] + padre2[a:b] + padre1[b:]
+                   Mayor mezcla que un punto; útil en cromosomas medianos.
+
+    "uniforme"   — Cada gen se intercambia de forma independiente con P=0.5.
+                   Es la estrategia más disruptiva y maximiza la exploración
+                   del espacio de búsqueda en cromosomas largos como el HNC.
+    """
+    if random.random() >= prob_cruza:
+        return padre1[:], padre2[:]
+
+    if estrategia == "un_punto":
+        p    = random.randint(1, GENES - 1)
+        h1   = padre1[:p] + padre2[p:]
+        h2   = padre2[:p] + padre1[p:]
+
+    elif estrategia == "dos_puntos":
+        a, b = sorted(random.sample(range(1, GENES), 2))
+        h1   = padre1[:a] + padre2[a:b] + padre1[b:]
+        h2   = padre2[:a] + padre1[a:b] + padre2[b:]
+
+    else:
+        h1 = [padre2[i] if random.random() < 0.5 else padre1[i] for i in range(GENES)]
+        h2 = [padre1[i] if h1[i] == padre2[i]   else padre2[i]  for i in range(GENES)]
+
     return h1, h2
 
 
-def cruza_uniforme(
-    p1: List[float], p2: List[float], prob: float, prob_gen: float = 0.5
-) -> Tuple[List[float], List[float]]:
-    """Cruzamiento uniforme: cada gen se intercambia con probabilidad prob_gen."""
-    if random.random() >= prob:
-        return p1[:], p2[:]
-    h1 = [p2[i] if random.random() < prob_gen else p1[i] for i in range(GENES)]
-    h2 = [p1[i] if h1[i] == p2[i] else p2[i] for i in range(GENES)]
-    return h1, h2
-
-
-# ── Mutación ─────────────────────────────────────────────────────────────────
-def mutar_gaussiana(
-    individuo: List[float], prob: float, sigma: float = 0.05
+# §1.4.5
+def FuncionMutacion(
+    individuo: List[float],
+    prob_mutacion: float = 0.10,
+    estrategia: str      = "gaussiana",
 ) -> List[float]:
-    """Mutación gaussiana: perturbación normal con desviación sigma."""
-    import math as _math
-    return [
-        clamp01(g + random.gauss(0, sigma)) if random.random() < prob else g
-        for g in individuo
-    ]
+    """
+    Aplica mutación gen a gen con probabilidad prob_mutacion.
+    Todos los valores se mantienen en [0.0, 1.0] mediante clamp01().
+
+    Estrategias implementadas
+    ─────────────────────────
+    "uniforme"  — El gen muta sumando una perturbación ε ∈ Uniforme(−0.1, 0.1).
+                  Produce cambios de magnitud constante y exploración localizada.
+
+    "gaussiana" — El gen muta sumando ε ~ N(0, σ=0.08).
+                  Mutaciones pequeñas son más frecuentes que las grandes
+                  (cola de campana), favorece ajuste fino cerca del óptimo.
+                  σ=0.08 es mayor que el típico 0.05 para escapar mesetas.
+
+    "reset"     — El gen se reemplaza por un valor completamente aleatorio en
+                  [0, 1].  Exploración global; útil cuando la población se ha
+                  homogeneizado y el AG está estancado.
+    """
+    mutado = individuo[:]
+    for i in range(GENES):
+        if random.random() < prob_mutacion:
+            if estrategia == "uniforme":
+                mutado[i] = clamp01(individuo[i] + random.uniform(-0.1, 0.1))
+            elif estrategia == "gaussiana":
+                mutado[i] = clamp01(individuo[i] + random.gauss(0, 0.08))
+            else:
+                mutado[i] = random.random()
+    return mutado
 
 
-def mutar_uniforme(individuo: List[float], prob: float) -> List[float]:
-    """Mutación uniforme (original): perturbación ±0.1."""
-    return mutar(individuo, prob)
+# §1.4.6
+def FuncionPoda(
+    poblacion: List[List[float]],
+    aptitudes: List[float],
+    tam_objetivo: int,
+    elitismo: int = 1,
+) -> List[List[float]]:
+    """
+    Reduce la población al tamaño objetivo seleccionando los mejores individuos.
+
+    Estrategia: reemplazo generacional con elitismo.
+    ─────────────────────────────────────────────────
+    1. Se ordenan todos los individuos (padres + hijos) de mayor a menor aptitud.
+    2. Los primeros `elitismo` pasan directamente garantizando que el mejor
+       individuo jamás se pierda (propiedad de monotonía).
+    3. Se conservan en total los primeros `tam_objetivo` individuos.
+
+    También mide la diversidad genética de la nueva generación como la
+    desviación estándar promedio de cada gen (0 = clones, ~0.29 = aleatorio),
+    información que el motor usa para detectar convergencia prematura.
+    """
+    ranking     = sorted(zip(poblacion, aptitudes), key=lambda x: x[1], reverse=True)
+    nueva_gen   = [ind[:] for ind, _ in ranking[:tam_objetivo]]
+
+    diversidad = 0.0
+    if len(nueva_gen) >= 2:
+        for g in range(GENES):
+            vals   = [ind[g] for ind in nueva_gen]
+            media  = sum(vals) / len(vals)
+            var    = sum((v - media) ** 2 for v in vals) / len(vals)
+            diversidad += var ** 0.5
+        diversidad /= GENES
+
+    return nueva_gen
 
 
-def mutar_reset(individuo: List[float], prob: float) -> List[float]:
-    """Mutación por reinicio: el gen se reemplaza por un valor aleatorio."""
-    return [random.random() if random.random() < prob else g for g in individuo]
+def _diversidad_poblacion(poblacion: List[List[float]]) -> float:
+    """Calcula la diversidad genética como desviación estándar promedio por gen."""
+    diversidad = 0.0
+    if len(poblacion) >= 2:
+        for g in range(len(poblacion[0])):
+            vals  = [ind[g] for ind in poblacion]
+            media = sum(vals) / len(vals)
+            var   = sum((v - media) ** 2 for v in vals) / len(vals)
+            diversidad += var ** 0.5
+        diversidad /= len(poblacion[0])
+    return diversidad
 
 
-def aptitud(individuo, factor_mensual, factor_sabado=1.0, total_sabados=4, nivel_imeca=150.0) -> float:
-    return funcion_objetivo(individuo, factor_mensual, factor_sabado, total_sabados, nivel_imeca)
-
-
-# ============================================================================
-# OPERADORES GENÉTICOS
-# ============================================================================
-def seleccionar_padre_ruleta(poblacion: List[List[float]], aptitudes: List[float]) -> List[float]:
-    minimo    = min(aptitudes)
-    offset    = abs(minimo) + 1e-9 if minimo < 0 else 0.0
-    ajustadas = [a + offset for a in aptitudes]
-    total     = sum(ajustadas)
-    if total <= 0:
-        return random.choice(poblacion)[:]
-    r, acum = random.uniform(0.0, total), 0.0
-    for ind, fit in zip(poblacion, ajustadas):
-        acum += fit
-        if acum >= r:
-            return ind[:]
-    return poblacion[-1][:]
-
-def cruza_un_punto(p1: List[float], p2: List[float], prob: float) -> Tuple[List[float], List[float]]:
-    if random.random() >= prob:
-        return p1[:], p2[:]
-    punto = random.randint(1, GENES - 1)
-    return p1[:punto] + p2[punto:], p2[:punto] + p1[punto:]
-
-def mutar(individuo: List[float], prob: float) -> List[float]:
-    return [clamp01(g + random.uniform(-0.1, 0.1)) if random.random() < prob else g for g in individuo]
-
-def poda(poblacion, factor_mensual, factor_sabado, total_sabados, tam, nivel_imeca) -> List[List[float]]:
-    return [ind[:] for ind in sorted(
-        poblacion,
-        key=lambda i: aptitud(i, factor_mensual, factor_sabado, total_sabados, nivel_imeca),
-        reverse=True
-    )[:tam]]
-
-
-# ── Tabla de estrategias disponibles ─────────────────────────────────────────
-ESTRATEGIAS_SELECCION = {
-    "ruleta":   seleccion_ruleta,
-    "torneo":   seleccion_torneo,
-    "ranking":  seleccion_ranking,
-}
-ESTRATEGIAS_CRUZA = {
-    "un_punto":   cruza_un_punto,
-    "dos_puntos": cruza_dos_puntos,
-    "uniforme":   cruza_uniforme,
-}
-ESTRATEGIAS_MUTACION = {
-    "uniforme":  mutar_uniforme,
-    "gaussiana": mutar_gaussiana,
-    "reset":     mutar_reset,
-}
-
-
-# ============================================================================
-# MOTOR EVOLUTIVO
-# ============================================================================
 def ejecutar_algoritmo_genetico(
     factor_mensual: float,
     factor_sabado: float = 1.0,
@@ -856,7 +709,7 @@ def ejecutar_algoritmo_genetico(
     nivel_imeca: float = 150.0,
     pop_size: int = DEFAULT_POP_SIZE,
     generaciones: int = DEFAULT_GENERATIONS,
-    prob_cruza: float = 0.85,
+    prob_cruza: float = 0.60,
     prob_mutacion: float = 0.05,
     elitismo: int = 2,
     estrategia_seleccion: str = "ruleta",
@@ -866,30 +719,31 @@ def ejecutar_algoritmo_genetico(
     peso_ambiental: float = 2.2,
     peso_economico: float = 1.55,
     peso_equidad: float = 1.0,
+    stagnacion_umbral: int = 15,
+    mutacion_max: float = 0.35,
+    inyeccion_pct: float = 0.10,
+    diversidad_minima: float = 0.04,
 ) -> Dict[str, Any]:
     """
-    Motor evolutivo con estrategias configurables.
+    Motor evolutivo con estrategias configurables y mecanismo anti-convergencia prematura.
+
     Soporta múltiples operadores por etapa:
-      Selección:  ruleta | torneo | ranking
+      Selección:   ruleta | torneo | ranking
       Cruzamiento: un_punto | dos_puntos | uniforme
       Mutación:    uniforme | gaussiana | reset
-    """
-    # Resolve strategy functions
-    fn_sel = ESTRATEGIAS_SELECCION.get(estrategia_seleccion, seleccion_ruleta)
-    fn_crz = ESTRATEGIAS_CRUZA.get(estrategia_cruza, cruza_un_punto)
-    fn_mut = ESTRATEGIAS_MUTACION.get(estrategia_mutacion, mutar_uniforme)
-    env    = entorno or {}
 
-    # Decide fitness: si hay entorno con datos reales → BPR; si no → clásica
-    usar_bpr = bool(env.get("vehiculos") and env.get("trafico"))
+    Mecanismo anti-estancamiento:
+      - Mutación adaptativa: la tasa sube gradualmente cada generación sin mejora.
+      - Inyección de diversidad: se insertan individuos aleatorios cuando el AG
+        lleva `stagnacion_umbral` generaciones sin progresar O cuando la diversidad
+        genética cae por debajo de `diversidad_minima`.
+    """
+    env = entorno or {}
 
     def eval_ind(ind: List[float]) -> float:
-        if usar_bpr:
-            return fitness_global_bpr(ind, env, total_sabados, nivel_imeca,
-                                      peso_ambiental, peso_economico, peso_equidad)
-        return aptitud(ind, factor_mensual, factor_sabado, total_sabados, nivel_imeca)
+        return FuncionAptitud(ind, env, total_sabados, nivel_imeca, peso_ambiental, peso_economico)
 
-    poblacion  = [generar_individuo() for _ in range(pop_size)]
+    poblacion  = FuncionInicializacion(pop_size)
     best_fit   = -math.inf
     best_ind: List[float] = []
     historial_mejor: List[float] = []
@@ -897,13 +751,18 @@ def ejecutar_algoritmo_genetico(
     historial_prom:  List[float] = []
     historial_vars:  List[Dict[str, Any]] = []
 
+    stagnacion_counter = 0
+    prev_best          = -math.inf
+
     for _ in range(generaciones):
         aptitudes_lista = [eval_ind(ind) for ind in poblacion]
         ranking = sorted(zip(poblacion, aptitudes_lista), key=lambda x: x[1], reverse=True)
         mejor_ind_gen, mejor_fit_gen = ranking[0]
+
         historial_mejor.append(float(mejor_fit_gen))
         historial_peor.append(float(min(aptitudes_lista)))
         historial_prom.append(float(sum(aptitudes_lista) / len(aptitudes_lista)))
+
         decoded_gen = decodificar_individuo(mejor_ind_gen, total_sabados, nivel_imeca)
         d_ag_gen    = decoded_gen["decisiones_ag"]
         historial_vars.append({
@@ -914,22 +773,38 @@ def ejecutar_algoritmo_genetico(
             "n_light_h1":       int(d_ag_gen.get("n_light_h1", 0)),
             "n_light_h2":       int(d_ag_gen.get("n_light_h2", 0)),
         })
+
         if mejor_fit_gen > best_fit:
             best_fit, best_ind = float(mejor_fit_gen), mejor_ind_gen[:]
 
+        if float(mejor_fit_gen) > prev_best + 1e-8:
+            prev_best          = float(mejor_fit_gen)
+            stagnacion_counter = 0
+        else:
+            stagnacion_counter += 1
+
+        factor_adapt       = min(1.0, stagnacion_counter / max(1, stagnacion_umbral))
+        prob_mutacion_actual = prob_mutacion + (mutacion_max - prob_mutacion) * factor_adapt
+
         elite = [ind[:] for ind, _ in ranking[:max(1, elitismo)]]
         nueva = list(elite)
+
+        div_actual = _diversidad_poblacion(poblacion)
+        inyectar   = (stagnacion_counter >= stagnacion_umbral) or (div_actual < diversidad_minima)
+        if inyectar:
+            n_inject = max(1, int(pop_size * inyeccion_pct))
+            nueva.extend(FuncionInicializacion(n_inject))
+
         while len(nueva) < pop_size:
-            p1 = fn_sel(poblacion, aptitudes_lista)
-            p2 = fn_sel(poblacion, aptitudes_lista)
-            h1, h2 = fn_crz(p1, p2, prob_cruza)
-            nueva.append(fn_mut(h1, prob_mutacion))
+            p1 = FuncionGeneracionParejas(poblacion, aptitudes_lista, estrategia_seleccion)
+            p2 = FuncionGeneracionParejas(poblacion, aptitudes_lista, estrategia_seleccion)
+            h1, h2 = FuncionCruza(p1, p2, prob_cruza, estrategia_cruza)
+            nueva.append(FuncionMutacion(h1, prob_mutacion_actual, estrategia_mutacion))
             if len(nueva) < pop_size:
-                nueva.append(fn_mut(h2, prob_mutacion))
-        # Reemplazar con poda (elitismo ya preservado)
+                nueva.append(FuncionMutacion(h2, prob_mutacion_actual, estrategia_mutacion))
+
         aptitudes_nueva = [eval_ind(ind) for ind in nueva]
-        ranking_nueva = sorted(zip(nueva, aptitudes_nueva), key=lambda x: x[1], reverse=True)
-        poblacion = [ind[:] for ind, _ in ranking_nueva[:pop_size]]
+        poblacion       = FuncionPoda(nueva, aptitudes_nueva, pop_size, elitismo)
 
     return {
         "mejor_fitness":      float(best_fit),
@@ -953,15 +828,12 @@ def evolucionar(factor_mensual: float, params: Optional[Dict[str, Any]] = None,
         nivel_imeca=nivel_imeca,
         pop_size=int(cfg.get("pop_size", DEFAULT_POP_SIZE)),
         generaciones=int(cfg.get("generaciones", DEFAULT_GENERATIONS)),
-        prob_cruza=0.85,
+        prob_cruza=float(cfg.get("prob_cruza", 0.60)),
         prob_mutacion=float(cfg.get("mutacion", 0.05)),
-        elitismo=int(cfg.get("elitismo", 2)),
+        elitismo=int(cfg.get("elitismo", 1)),
     )
 
 
-# ============================================================================
-# GENERACIÓN DEL JSON FINAL
-# ============================================================================
 def generar_json_final(params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Genera el calendario óptimo de restricciones HNC.
@@ -977,6 +849,7 @@ def generar_json_final(params: Optional[Dict[str, Any]] = None) -> Dict[str, Any
     nivel_imeca   = float(merged["nivel_imeca"])
     pop_size      = int(merged["pop_size"])
     generaciones  = int(merged["generaciones"])
+    prob_cruza    = float(merged.get("prob_cruza", 0.60))
     prob_mutacion = float(merged["mutacion"])
     elitismo      = int(merged["elitismo"])
 
@@ -996,9 +869,9 @@ def generar_json_final(params: Optional[Dict[str, Any]] = None) -> Dict[str, Any
             factor_mensual=factor_i, factor_sabado=factor_sabado,
             total_sabados=total_sab_i, nivel_imeca=nivel_imeca,
             pop_size=pop_size, generaciones=generaciones,
-            prob_cruza=0.85, prob_mutacion=prob_mutacion, elitismo=elitismo,
+            prob_cruza=prob_cruza, prob_mutacion=prob_mutacion, elitismo=elitismo,
             estrategia_seleccion=str(merged.get("estrategia_seleccion", "ruleta")),
-            estrategia_cruza=str(merged.get("estrategia_cruza", "un_punto")),
+            estrategia_cruza=str(merged.get("estrategia_cruza", "uniforme")),
             estrategia_mutacion=str(merged.get("estrategia_mutacion", "uniforme")),
             entorno=entorno,
             peso_ambiental=float(merged.get("peso_ambiental_critico", 2.2)),
@@ -1009,14 +882,12 @@ def generar_json_final(params: Optional[Dict[str, Any]] = None) -> Dict[str, Any
         mejor_ind    = ag_result["mejor_individuo"]
         decoded      = decodificar_individuo(mejor_ind, total_sab_i, nivel_imeca)
         color_to_day = decoded["color_dia_final"]
-        # Compute CO2 / autos analytics for this month
         _weekdays_i = sum(1 for w in monthcalendar(year_i, month_i) for d in w[:5] if d != 0)
         _h2_cd_i = (FLOTA_TOTAL*0.55/5*_weekdays_i)
         _h1_cd_i = (FLOTA_TOTAL*0.40/5*_weekdays_i)
         _co2_i   = (_h2_cd_i + _h1_cd_i) * CO2_KG * EFFECTIVENESS / 1000
         _autos_i = (_h2_cd_i + _h1_cd_i) / days_in_month(year_i, month_i) / 1e6
 
-        # Garantiza diversidad de rotaciones entre meses
         color_tuple = tuple(color_to_day[c] for c in COLOR_ORDER)
         if color_tuple in used_color_day_tuples:
             alts = generar_asignaciones_mensuales_desde_base(
@@ -1047,7 +918,7 @@ def generar_json_final(params: Optional[Dict[str, Any]] = None) -> Dict[str, Any
         "parametros": {k: merged[k] for k in [
             "pop_size", "generaciones", "mutacion", "elitismo",
             "peso_equidad", "peso_ambiental_critico", "peso_economico",
-            "nivel_imeca", "start_month", "meses",
+            "nivel_imeca", "start_month", "meses", "prob_cruza",
         ]},
         "contexto_entorno": {"factor_sabado": factor_sabado, "usa_entorno_etl": bool(entorno)},
         "mejor_fitness": sum(fitness_acumulado) / len(fitness_acumulado) if fitness_acumulado else 0.0,
