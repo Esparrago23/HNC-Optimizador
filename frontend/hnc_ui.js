@@ -7,9 +7,14 @@ const state = {
 
 const FALLBACK_DEFAULTS = {
   params: {
-    pop_size: 100, generaciones: 120, mutacion: 0.05, elitismo: 2,
+    pop_size: 120, generaciones: 150, mutacion: 0.10, elitismo: 3,
     peso_equidad: 1, peso_ambiental_critico: 2.2, peso_economico: 1.55,
     nivel_imeca: 150, start_month: "2026-04", meses: 6,
+    prob_cruza: 0.78,
+    estrategia_seleccion: "torneo",
+    estrategia_cruza:     "multipunto",
+    estrategia_mutacion:  "gaussiana",
+    estrategia_poda:      "elitismo",
   },
   ui: { imeca: 151, veh_holograma: "H1", veh_digito: "all" },
 };
@@ -85,8 +90,12 @@ function initializeDOM() {
   els.statH2  = document.getElementById("statH2")  || document.createElement("div");
   els.statH00 = document.getElementById("statH00") || document.createElement("div"); // legacy
   els.hybridSummary = document.getElementById("hybridSummary") || document.createElement("div");
-  els.vehHolograma = document.getElementById("vehHolograma") || document.createElement("select");
-  els.vehDigito = document.getElementById("vehDigito") || document.createElement("select");
+  els.vehHolograma  = document.getElementById("vehHolograma")   || document.createElement("select");
+  els.vehDigito     = document.getElementById("vehDigito")      || document.createElement("select");
+  els.estrategiaSel  = document.getElementById("estrategiaSel")  || document.createElement("select");
+  els.estrategiaCruz = document.getElementById("estrategiaCruz") || document.createElement("select");
+  els.estrategiaMut  = document.getElementById("estrategiaMut")  || document.createElement("select");
+  els.estrategiaPoda = document.getElementById("estrategiaPoda") || document.createElement("select");
   els.calendarPanel = document.getElementById("calendarPanel") || document.createElement("div");
   els.calendarTitle = document.getElementById("calendarTitle") || document.createElement("div");
   els.calendarGrid = document.getElementById("calendarGrid") || document.createElement("div");
@@ -150,13 +159,20 @@ function applyConfigToUI(config) {
   els.startMonth.value = normalized.params.start_month;
   els.horizonteMeses.value = normalized.params.meses;
 
-  if (els.vehHolograma) {
-    els.vehHolograma.value = normalized.ui.veh_holograma;
-  }
+  if (els.vehHolograma) els.vehHolograma.value = normalized.ui.veh_holograma;
   populateDigitOptions(normalized.grupos_placa);
-  if (els.vehDigito) {
-    els.vehDigito.value = normalized.ui.veh_digito;
-  }
+  if (els.vehDigito) els.vehDigito.value = normalized.ui.veh_digito;
+
+  // Estrategias del AG
+  if (els.estrategiaSel  && normalized.params.estrategia_seleccion)
+    els.estrategiaSel.value  = normalized.params.estrategia_seleccion;
+  if (els.estrategiaCruz && normalized.params.estrategia_cruza)
+    els.estrategiaCruz.value = normalized.params.estrategia_cruza;
+  if (els.estrategiaMut  && normalized.params.estrategia_mutacion)
+    els.estrategiaMut.value  = normalized.params.estrategia_mutacion;
+  if (els.estrategiaPoda && normalized.params.estrategia_poda)
+    els.estrategiaPoda.value = normalized.params.estrategia_poda;
+
   syncClimateControls("imeca");
   updateEnvSummary();
 }
@@ -841,13 +857,11 @@ function buildFormData() {
     start_month:            els.startMonth?.value || "2026-04",
     meses:                  parseInt(els.horizonteMeses?.value || "6", 10),
   };
-  // Add strategy selections
-  const selEl  = document.getElementById("estrategiaSel");
-  const cruzEl = document.getElementById("estrategiaCruz");
-  const mutEl  = document.getElementById("estrategiaMut");
-  params.estrategia_seleccion = selEl?.value  || "ruleta";
-  params.estrategia_cruza     = cruzEl?.value || "un_punto";
-  params.estrategia_mutacion  = mutEl?.value  || "uniforme";
+  // Estrategias del AG
+  params.estrategia_seleccion = els.estrategiaSel?.value  || "torneo";
+  params.estrategia_cruza     = els.estrategiaCruz?.value || "multipunto";
+  params.estrategia_mutacion  = els.estrategiaMut?.value  || "gaussiana";
+  params.estrategia_poda      = els.estrategiaPoda?.value || "elitismo";
   fd.append("params", JSON.stringify(params));
   // Los archivos ETL ya se subieron individualmente vía /api/subir-archivo.
   // El backend los usa desde sus rutas canónicas al ejecutar el ETL.

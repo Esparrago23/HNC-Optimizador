@@ -13,14 +13,18 @@ DEFAULT_POP_SIZE = 100
 DEFAULT_GENERATIONS = 120
 
 DEFAULT_PARAMS = {
-    "pop_size": 100, "generaciones": 120, "mutacion": 0.08, "elitismo": 2,
+    "pop_size": 120, "generaciones": 150, "mutacion": 0.10, "elitismo": 3,
     "peso_equidad": 1, "peso_ambiental_critico": 2.2, "peso_economico": 1.55,
     "nivel_imeca": 150, "start_month": "2026-04", "meses": 6,
-    "prob_cruza": 0.75,
+    "prob_cruza": 0.78,
     "estrategia_seleccion": "torneo",
-    "estrategia_cruza":     "dos_puntos",
+    "estrategia_cruza":     "multipunto",
     "estrategia_mutacion":  "gaussiana",
+    "estrategia_poda":      "elitismo",
+    "n_runs": 2,
 }
+DEFAULT_POP_SIZE    = 120
+DEFAULT_GENERATIONS = 150
 
 GRUPOS_PLACA = {"Amarillo": [5, 6], "Rosa": [7, 8], "Rojo": [3, 4], "Verde": [1, 2], "Azul": [9, 0]}
 HOLOGRAMAS   = ["H00", "H0", "H1", "H2"]
@@ -653,7 +657,7 @@ def FuncionGeneracionParejas(
         return poblacion[-1][:]
 
     elif estrategia == "torneo":
-        k       = 3
+        k       = 5   # torneo más grande → más presión de selección → mejores padres
         indices = random.sample(range(len(poblacion)), min(k, len(poblacion)))
         ganador = max(indices, key=lambda i: aptitudes[i])
         return poblacion[ganador][:]
@@ -675,25 +679,58 @@ def FuncionGeneracionParejas(
 def FuncionCruza(
     padre1: List[float],
     padre2: List[float],
-    prob_cruza: float = 0.60,
-    estrategia: str   = "uniforme",
+    prob_cruza: float = 0.78,
+    estrategia: str   = "multipunto",
 ) -> Tuple[List[float], List[float]]:
+    """
+    Estrategias de cruzamiento disponibles:
+      un_punto   — Un único punto de corte; intercambia los segmentos resultantes.
+      multipunto — K puntos de corte aleatorios (K entre 2 y 4); mejor mezcla genética.
+      uniforme   — Cada gen se hereda de uno u otro padre con prob. 0.5.
+      permutacion— Genera una permutación aleatoria de posiciones; los hijos heredan
+                   la mitad de las posiciones de cada padre según la permutación.
+    """
     if random.random() >= prob_cruza:
         return padre1[:], padre2[:]
 
     if estrategia == "un_punto":
-        p    = random.randint(1, GENES - 1)
-        h1   = padre1[:p] + padre2[p:]
-        h2   = padre2[:p] + padre1[p:]
+        # Un solo punto de corte aleatorio
+        p  = random.randint(1, GENES - 1)
+        h1 = padre1[:p] + padre2[p:]
+        h2 = padre2[:p] + padre1[p:]
 
-    elif estrategia == "dos_puntos":
-        a, b = sorted(random.sample(range(1, GENES), 2))
-        h1   = padre1[:a] + padre2[a:b] + padre1[b:]
-        h2   = padre2[:a] + padre1[a:b] + padre2[b:]
+    elif estrategia == "multipunto":
+        # K puntos aleatorios (2-4); alterna segmentos entre padres.
+        # Más mezcla que un punto; ideal para cromosomas con genes relacionados.
+        k      = random.randint(2, min(4, GENES - 1))
+        puntos = sorted(random.sample(range(1, GENES), k))
+        h1, h2 = [], []
+        prev   = 0
+        de_p1  = True          # primer segmento viene de padre1 para h1
+        for punto in puntos + [GENES]:
+            seg = slice(prev, punto)
+            if de_p1:
+                h1.extend(padre1[seg]); h2.extend(padre2[seg])
+            else:
+                h1.extend(padre2[seg]); h2.extend(padre1[seg])
+            de_p1 = not de_p1
+            prev  = punto
 
-    else:
+    elif estrategia == "uniforme":
+        # Cada gen se toma de padre1 o padre2 con prob. 50% independientemente.
         h1 = [padre2[i] if random.random() < 0.5 else padre1[i] for i in range(GENES)]
         h2 = [padre1[i] if h1[i] == padre2[i]   else padre2[i]  for i in range(GENES)]
+
+    else:  # permutacion
+        # Permutación de posiciones: una máscara aleatoria decide qué mitad de
+        # las posiciones del cromosoma hereda cada gen de cuál padre.
+        perm = list(range(GENES))
+        random.shuffle(perm)
+        mitad = GENES // 2
+        h1    = list(padre1)
+        h2    = list(padre2)
+        for idx in perm[mitad:]:
+            h1[idx], h2[idx] = padre2[idx], padre1[idx]
 
     return h1, h2
 
@@ -702,38 +739,101 @@ def FuncionMutacion(
     individuo: List[float],
     prob_mutacion: float = 0.10,
     estrategia: str      = "gaussiana",
+    escala: float        = 0.07,
 ) -> List[float]:
+    """
+    Estrategias de mutación disponibles:
+      intercambio — Intercambia (swap) pares de genes seleccionados al azar.
+                    Mantiene los valores pero cambia sus posiciones.
+      sustitucion — Reemplaza cada gen seleccionado con un valor aleatorio en [0,1].
+                    También llamada 'inserción' o 'reset'.
+      gaussiana   — Suma un pequeño ruido gaussiano (creep) al gen.
+                    Exploración local suave; la más efectiva para valores continuos.
+    """
     mutado = individuo[:]
-    for i in range(GENES):
-        if random.random() < prob_mutacion:
-            if estrategia == "uniforme":
-                mutado[i] = clamp01(individuo[i] + random.uniform(-0.1, 0.1))
-            elif estrategia == "gaussiana":
-                mutado[i] = clamp01(individuo[i] + random.gauss(0, 0.08))
-            else:
+
+    if estrategia == "intercambio":
+        # Reúne los índices a mutar y los intercambia en pares
+        indices = [i for i in range(GENES) if random.random() < prob_mutacion]
+        random.shuffle(indices)
+        for k in range(0, len(indices) - 1, 2):
+            i, j         = indices[k], indices[k + 1]
+            mutado[i], mutado[j] = mutado[j], mutado[i]
+        # Si sobra un índice sin par, lo intercambia con una posición aleatoria
+        if len(indices) % 2 == 1:
+            i = indices[-1]
+            j = random.randint(0, GENES - 1)
+            mutado[i], mutado[j] = mutado[j], mutado[i]
+
+    elif estrategia == "sustitucion":
+        # Reemplaza el gen con un valor aleatorio uniforme (sustitución/inserción)
+        for i in range(GENES):
+            if random.random() < prob_mutacion:
                 mutado[i] = random.random()
+
+    else:  # gaussiana (creep)
+        # Perturbación gaussiana pequeña; la más adecuada para búsqueda continua.
+        # La escala se adapta externamente según el nivel de estancamiento.
+        for i in range(GENES):
+            if random.random() < prob_mutacion:
+                mutado[i] = clamp01(individuo[i] + random.gauss(0, escala))
+
     return mutado
 
 
+def _calcular_diversidad(poblacion: List[List[float]]) -> float:
+    if len(poblacion) < 2:
+        return 0.0
+    div = 0.0
+    for g in range(GENES):
+        vals  = [ind[g] for ind in poblacion]
+        media = sum(vals) / len(vals)
+        var   = sum((v - media) ** 2 for v in vals) / len(vals)
+        div  += var ** 0.5
+    return div / GENES
+
+
 def FuncionPoda(
-    poblacion: List[List[float]],
-    aptitudes: List[float],
+    candidatos: List[List[float]],
+    aptitudes:  List[float],
     tam_objetivo: int,
-    elitismo: int = 1,
+    elitismo_n: int = 1,
+    estrategia_poda: str = "elitismo",
+    poblacion_actual: Optional[List[List[float]]] = None,
+    aptitudes_actual: Optional[List[float]]       = None,
 ) -> Tuple[List[List[float]], float]:
-    ranking     = sorted(zip(poblacion, aptitudes), key=lambda x: x[1], reverse=True)
-    nueva_gen   = [ind[:] for ind, _ in ranking[:tam_objetivo]]
+    """
+    Estrategias de poda / reemplazo:
+      generacional    — La descendencia reemplaza completamente a los padres.
+                        Exploración rápida; conserva el mejor global para no regredir.
+      elitismo        — Los mejores N individuos de la generación actual sobreviven;
+                        el resto se rellena con la mejor descendencia. Equilibrio estable.
+      estado_estacionario — Solo se reemplazan los peores K miembros de la población
+                        cuando un hijo nuevo los supera. Convergencia lenta pero sólida.
+    """
+    if estrategia_poda == "generacional":
+        # Reemplaza toda la población con la descendencia.
+        # El mejor individuo global (primer elemento de candidatos si lo pasamos) SIEMPRE sobrevive.
+        ranking   = sorted(zip(candidatos, aptitudes), key=lambda x: x[1], reverse=True)
+        nueva_gen = [ind[:] for ind, _ in ranking[:tam_objetivo]]
 
-    diversidad = 0.0
-    if len(nueva_gen) >= 2:
-        for g in range(GENES):
-            vals   = [ind[g] for ind in nueva_gen]
-            media  = sum(vals) / len(vals)
-            var    = sum((v - media) ** 2 for v in vals) / len(vals)
-            diversidad += var ** 0.5
-        diversidad /= GENES
+    elif estrategia_poda == "estado_estacionario":
+        # Combina población actual con candidatos (nueva descendencia),
+        # reemplaza solo a los peores por los mejores nuevos individuos.
+        if poblacion_actual and aptitudes_actual:
+            todos     = list(zip(poblacion_actual + candidatos,
+                                 aptitudes_actual  + aptitudes))
+        else:
+            todos = list(zip(candidatos, aptitudes))
+        ranking   = sorted(todos, key=lambda x: x[1], reverse=True)
+        nueva_gen = [ind[:] for ind, _ in ranking[:tam_objetivo]]
 
-    return nueva_gen, diversidad
+    else:  # "elitismo" (default)
+        # Candidatos ya incluye elite + descendencia; tomamos los mejores K.
+        ranking   = sorted(zip(candidatos, aptitudes), key=lambda x: x[1], reverse=True)
+        nueva_gen = [ind[:] for ind, _ in ranking[:tam_objetivo]]
+
+    return nueva_gen, _calcular_diversidad(nueva_gen)
 
 
 def ejecutar_algoritmo_genetico(
@@ -743,20 +843,23 @@ def ejecutar_algoritmo_genetico(
     nivel_imeca: float = 150.0,
     pop_size: int = DEFAULT_POP_SIZE,
     generaciones: int = DEFAULT_GENERATIONS,
-    prob_cruza: float = 0.75,
-    prob_mutacion: float = 0.08,
-    elitismo: int = 2,
+    prob_cruza: float = 0.80,
+    prob_mutacion: float = 0.10,
+    elitismo: int = 3,
     estrategia_seleccion: str = "torneo",
-    estrategia_cruza: str = "dos_puntos",
+    estrategia_cruza: str = "multipunto",
     estrategia_mutacion: str = "gaussiana",
+    estrategia_poda: str = "elitismo",
     entorno: Optional[Dict[str, Any]] = None,
     peso_ambiental: float = 2.2,
     peso_economico: float = 1.55,
     peso_equidad: float = 1.0,
-    stagnacion_umbral: int = 10,
-    mutacion_max: float = 0.50,
+    stagnacion_umbral: int = 12,
+    mutacion_max: float = 0.45,
     inyeccion_pct: float = 0.20,
     diversidad_minima: float = 0.02,
+    restart_umbral: int = 35,
+    restart_keep_pct: float = 0.20,
 ) -> Dict[str, Any]:
     env = entorno or {}
 
@@ -772,6 +875,7 @@ def ejecutar_algoritmo_genetico(
     historial_vars:  List[Dict[str, Any]] = []
 
     stagnacion_counter = 0
+    restart_counter    = 0
     prev_best          = -math.inf
     div_actual         = 1.0
 
@@ -850,32 +954,107 @@ def ejecutar_algoritmo_genetico(
         if float(mejor_fit_gen) > prev_best + 1e-8:
             prev_best          = float(mejor_fit_gen)
             stagnacion_counter = 0
+            restart_counter    = 0
         else:
             stagnacion_counter += 1
+            restart_counter    += 1
 
-        factor_adapt       = min(1.0, stagnacion_counter / max(1, stagnacion_umbral))
+        # ── Reinicio con memoria (mecanismo interno anti-convergencia) ─────────
+        if restart_counter >= restart_umbral:
+            n_keep    = max(1, int(pop_size * restart_keep_pct))
+            keep_idx  = heapq.nlargest(n_keep, range(len(poblacion)),
+                                       key=aptitudes_lista.__getitem__)
+            keep_inds = [poblacion[i][:] for i in keep_idx]
+            if best_ind:
+                keep_inds[0] = best_ind[:]
+            nueva_pob       = keep_inds + FuncionInicializacion(pop_size - n_keep)
+            aptitudes_nueva = [eval_ind(ind) for ind in nueva_pob]
+            poblacion, div_actual = FuncionPoda(
+                nueva_pob, aptitudes_nueva, pop_size,
+                estrategia_poda=estrategia_poda,
+            )
+            stagnacion_counter = 0
+            restart_counter    = 0
+            continue
+
+        # ── Adaptación de la tasa de mutación según estancamiento ───────────
+        factor_adapt         = min(1.0, stagnacion_counter / max(1, stagnacion_umbral))
         prob_mutacion_actual = prob_mutacion + (mutacion_max - prob_mutacion) * factor_adapt
+        # La escala gaussiana también crece con el estancamiento
+        escala_mut = 0.04 + 0.10 * factor_adapt   # 0.04 → 0.14
 
-        elite_count = min(len(poblacion), max(1, elitismo))
-        elite_idx = heapq.nlargest(elite_count, range(len(poblacion)), key=aptitudes_lista.__getitem__)
-        elite = [poblacion[i][:] for i in elite_idx]
-        nueva = list(elite)
+        # ── Generación de descendencia según estrategia de poda ─────────────
+        if estrategia_poda == "generacional":
+            # Poda generacional: la descendencia reemplaza completamente a los padres.
+            # Solo el mejor individuo global siempre sobrevive (evitar regresión).
+            nueva = [best_ind[:]] if best_ind else []
+            while len(nueva) < pop_size:
+                p1 = FuncionGeneracionParejas(poblacion, aptitudes_lista, estrategia_seleccion)
+                p2 = FuncionGeneracionParejas(poblacion, aptitudes_lista, estrategia_seleccion)
+                h1, h2 = FuncionCruza(p1, p2, prob_cruza, estrategia_cruza)
+                nueva.append(FuncionMutacion(h1, prob_mutacion_actual, estrategia_mutacion, escala_mut))
+                if len(nueva) < pop_size:
+                    nueva.append(FuncionMutacion(h2, prob_mutacion_actual, estrategia_mutacion, escala_mut))
+            aptitudes_nueva = [eval_ind(ind) for ind in nueva]
+            poblacion, div_actual = FuncionPoda(
+                nueva, aptitudes_nueva, pop_size,
+                estrategia_poda="generacional",
+            )
 
-        inyectar   = (stagnacion_counter >= stagnacion_umbral) or (div_actual < diversidad_minima)
-        if inyectar:
-            n_inject = max(1, int(pop_size * inyeccion_pct))
-            nueva.extend(FuncionInicializacion(n_inject))
+        elif estrategia_poda == "estado_estacionario":
+            # Estado estacionario: solo se reemplazan los K peores miembros por
+            # descendientes mejores. La mayoría de la población sobrevive.
+            n_reemplazo = max(2, pop_size // 8)
+            descendencia = []
+            while len(descendencia) < n_reemplazo:
+                p1 = FuncionGeneracionParejas(poblacion, aptitudes_lista, estrategia_seleccion)
+                p2 = FuncionGeneracionParejas(poblacion, aptitudes_lista, estrategia_seleccion)
+                h1, h2 = FuncionCruza(p1, p2, prob_cruza, estrategia_cruza)
+                descendencia.append(FuncionMutacion(h1, prob_mutacion_actual, estrategia_mutacion, escala_mut))
+                if len(descendencia) < n_reemplazo:
+                    descendencia.append(FuncionMutacion(h2, prob_mutacion_actual, estrategia_mutacion, escala_mut))
+            apt_desc   = [eval_ind(ind) for ind in descendencia]
+            # Reemplaza solo los peores con los mejores descendientes
+            peor_idx   = sorted(range(len(poblacion)), key=lambda i: aptitudes_lista[i])[:n_reemplazo]
+            nueva      = poblacion[:]
+            apt_nueva  = list(aptitudes_lista)
+            for idx, ind, apt in zip(peor_idx, descendencia, apt_desc):
+                if apt > aptitudes_lista[idx]:
+                    nueva[idx]   = ind
+                    apt_nueva[idx] = apt
+            poblacion, div_actual = FuncionPoda(
+                nueva, apt_nueva, pop_size,
+                estrategia_poda="estado_estacionario",
+                poblacion_actual=poblacion, aptitudes_actual=apt_nueva,
+            )
 
-        while len(nueva) < pop_size:
-            p1 = FuncionGeneracionParejas(poblacion, aptitudes_lista, estrategia_seleccion)
-            p2 = FuncionGeneracionParejas(poblacion, aptitudes_lista, estrategia_seleccion)
-            h1, h2 = FuncionCruza(p1, p2, prob_cruza, estrategia_cruza)
-            nueva.append(FuncionMutacion(h1, prob_mutacion_actual, estrategia_mutacion))
-            if len(nueva) < pop_size:
-                nueva.append(FuncionMutacion(h2, prob_mutacion_actual, estrategia_mutacion))
+        else:  # elitismo (default)
+            # Elitismo: los mejores N individuos siempre sobreviven a la siguiente
+            # generación. El resto se rellena con la mejor descendencia.
+            elite_count = min(len(poblacion), max(1, elitismo))
+            elite_idx   = heapq.nlargest(elite_count, range(len(poblacion)),
+                                         key=aptitudes_lista.__getitem__)
+            elite = [poblacion[i][:] for i in elite_idx]
+            nueva = list(elite)
 
-        aptitudes_nueva = [eval_ind(ind) for ind in nueva]
-        poblacion, div_actual = FuncionPoda(nueva, aptitudes_nueva, pop_size, elitismo)
+            inyectar = (stagnacion_counter >= stagnacion_umbral) or (div_actual < diversidad_minima)
+            if inyectar:
+                n_inject = max(1, int(pop_size * inyeccion_pct))
+                nueva.extend(FuncionInicializacion(n_inject))
+
+            while len(nueva) < pop_size:
+                p1 = FuncionGeneracionParejas(poblacion, aptitudes_lista, estrategia_seleccion)
+                p2 = FuncionGeneracionParejas(poblacion, aptitudes_lista, estrategia_seleccion)
+                h1, h2 = FuncionCruza(p1, p2, prob_cruza, estrategia_cruza)
+                nueva.append(FuncionMutacion(h1, prob_mutacion_actual, estrategia_mutacion, escala_mut))
+                if len(nueva) < pop_size:
+                    nueva.append(FuncionMutacion(h2, prob_mutacion_actual, estrategia_mutacion, escala_mut))
+
+            aptitudes_nueva = [eval_ind(ind) for ind in nueva]
+            poblacion, div_actual = FuncionPoda(
+                nueva, aptitudes_nueva, pop_size,
+                estrategia_poda="elitismo",
+            )
 
     return {
         "mejor_fitness":      float(best_fit),
@@ -930,19 +1109,31 @@ def generar_json_final(params: Optional[Dict[str, Any]] = None) -> Dict[str, Any
         contaminacion_i = contamination_for_month(month_i, nivel_imeca)
         factor_i        = contamination_to_factor(contaminacion_i)
 
-        ag_result = ejecutar_algoritmo_genetico(
+        # ── Multi-run: corre el AG N veces y conserva el mejor resultado ────
+        # Cada corrida parte de una población aleatoria distinta (diferente semilla).
+        # Esto garantiza que si una corrida queda atrapada en un óptimo local,
+        # las otras tienen la oportunidad de encontrar algo mejor.
+        _ag_kwargs = dict(
             factor_mensual=factor_i, factor_sabado=factor_sabado,
             total_sabados=total_sab_i, nivel_imeca=nivel_imeca,
             pop_size=pop_size, generaciones=generaciones,
             prob_cruza=prob_cruza, prob_mutacion=prob_mutacion, elitismo=elitismo,
-            estrategia_seleccion=str(merged.get("estrategia_seleccion", "ruleta")),
-            estrategia_cruza=str(merged.get("estrategia_cruza", "uniforme")),
-            estrategia_mutacion=str(merged.get("estrategia_mutacion", "uniforme")),
+            estrategia_seleccion=str(merged.get("estrategia_seleccion", "torneo")),
+            estrategia_cruza=str(merged.get("estrategia_cruza", "multipunto")),
+            estrategia_mutacion=str(merged.get("estrategia_mutacion", "gaussiana")),
+            estrategia_poda=str(merged.get("estrategia_poda", "elitismo")),
             entorno=entorno,
             peso_ambiental=float(merged.get("peso_ambiental_critico", 2.2)),
             peso_economico=float(merged.get("peso_economico", 1.55)),
             peso_equidad=float(merged.get("peso_equidad", 1.0)),
         )
+        n_runs  = int(merged.get("n_runs", 2))   # 2 corridas independientes por mes
+        ag_result = ejecutar_algoritmo_genetico(**_ag_kwargs)
+        for _ in range(n_runs - 1):
+            _r2 = ejecutar_algoritmo_genetico(**_ag_kwargs)
+            if _r2["mejor_fitness"] > ag_result["mejor_fitness"]:
+                ag_result = _r2   # conserva el historial de la mejor corrida
+        # ─────────────────────────────────────────────────────────────────────
         fitness_acumulado.append(ag_result["mejor_fitness"])
         mejor_ind    = ag_result["mejor_individuo"]
         decoded      = decodificar_individuo(mejor_ind, total_sab_i, nivel_imeca)

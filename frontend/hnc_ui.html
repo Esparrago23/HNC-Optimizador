@@ -135,29 +135,49 @@
       <!-- Estrategias del AG -->
       <div style="margin-top:12px; padding-top:10px; border-top:1px dashed var(--line)">
         <p class="small" style="margin:0 0 8px;font-weight:600;color:var(--ink)">Estrategias del AG</p>
-        <div class="grid-3">
-          <label>Selección
+        <div class="grid-3" style="gap:10px">
+
+          <!-- EMPAREJAMIENTO / SELECCIÓN -->
+          <label>Emparejamiento
             <select id="estrategiaSel">
-              <option value="ruleta">Ruleta (proporcional)</option>
-              <option value="torneo">Torneo (k=3)</option>
+              <option value="torneo">Torneo (k=5)</option>
+              <option value="ruleta">Ruleta proporcional</option>
               <option value="ranking">Ranking lineal</option>
             </select>
           </label>
+
+          <!-- CRUZAMIENTO -->
           <label>Cruzamiento
             <select id="estrategiaCruz">
+              <option value="multipunto">Multipunto (2–4 cortes)</option>
               <option value="un_punto">Un punto</option>
-              <option value="dos_puntos">Dos puntos</option>
               <option value="uniforme">Uniforme</option>
+              <option value="permutacion">Permutaciones</option>
             </select>
           </label>
+
+          <!-- MUTACIÓN -->
           <label>Mutación
             <select id="estrategiaMut">
-              <option value="uniforme">Uniforme (±0.1)</option>
-              <option value="gaussiana">Gaussiana (σ=0.05)</option>
-              <option value="reset">Reset aleatorio</option>
+              <option value="gaussiana">Creep / Gaussiana</option>
+              <option value="intercambio">Intercambio (swap)</option>
+              <option value="sustitucion">Sustitución / Inserción</option>
             </select>
           </label>
+
+          <!-- PODA / REEMPLAZO -->
+          <label>Poda
+            <select id="estrategiaPoda">
+              <option value="elitismo">Elitismo</option>
+              <option value="generacional">Generacional</option>
+              <option value="estado_estacionario">Estado estacionario</option>
+            </select>
+          </label>
+
         </div>
+        <p class="small" style="margin:6px 0 0;color:var(--muted)">
+          Recomendado: Torneo · Multipunto · Creep/Gaussiana · Elitismo
+        </p>
       </div>
       <div class="actions" style="margin-top:12px">
         <button class="ghost small-btn" id="btnResetDefaults" type="button">Restablecer valores por defecto</button>
