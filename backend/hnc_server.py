@@ -1,6 +1,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -12,10 +13,11 @@ import ag_evolutivo_hnc2 as ag
 import etl_datos as etl
 
 
-BASE_DIR     = Path(__file__).resolve().parent
-PROJECT_ROOT = BASE_DIR.parent
-DATA_DIR     = PROJECT_ROOT / "data"
-FRONTEND_DIR = PROJECT_ROOT / "frontend"
+BASE_DIR      = Path(__file__).resolve().parent
+PROJECT_ROOT  = BASE_DIR.parent
+DATA_DIR      = PROJECT_ROOT / "data"
+FRONTEND_DIR  = PROJECT_ROOT / "frontend"
+GRAFICAS_DIR  = PROJECT_ROOT / "graficas"
 
 app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path="")
 
@@ -212,9 +214,38 @@ def run_model() -> Any:
         with (DATA_DIR / "resultado_ag_hnc.json").open("w", encoding="utf-8") as f:
             json.dump(resultado, f, ensure_ascii=False, indent=4)
 
+        GRAFICAS_DIR.mkdir(exist_ok=True)
+        with (GRAFICAS_DIR / "resultado.json").open("w", encoding="utf-8") as f:
+            json.dump(resultado, f, ensure_ascii=False, indent=4)
+
         return jsonify(resultado)
     except Exception as exc:
         return jsonify({"error": str(exc), "trace": repr(exc)}), 500
+
+
+@app.post("/api/guardar-graficas")
+def guardar_graficas() -> Any:
+    payload = request.get_json(silent=True) or {}
+    graficas = payload.get("graficas", [])
+    if not graficas:
+        return jsonify({"error": "No se recibieron gráficas."}), 400
+
+    GRAFICAS_DIR.mkdir(exist_ok=True)
+    guardadas = []
+
+    for item in graficas:
+        nombre = item.get("nombre", "grafica")
+        data_url = item.get("data", "")
+        if not data_url.startswith("data:image/png;base64,"):
+            continue
+        b64 = data_url.split(",", 1)[1]
+        img_bytes = base64.b64decode(b64)
+        filename = f"{nombre}.png"
+        filepath = GRAFICAS_DIR / filename
+        filepath.write_bytes(img_bytes)
+        guardadas.append(filename)
+
+    return jsonify({"ok": True, "guardadas": guardadas, "carpeta": str(GRAFICAS_DIR)})
 
 
 @app.get("/api/ultimo-resultado")

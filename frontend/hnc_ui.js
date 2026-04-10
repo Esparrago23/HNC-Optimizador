@@ -490,7 +490,7 @@ function getRestrictedDigitsForDay(monthData, holograma, dt) {
   const restrictedDigits = [];
   const isDateOnlyHologram = holograma === "H0" || holograma === "H00";
 
-  for (const [color, info] of Object.entries(colores)) {
+  for (const [, info] of Object.entries(colores)) {
     const placas = info.placas || [];
     const isNormalDay = !isDateOnlyHologram && info.dia_normal === dayName;
     const isSaturday = dayName === "Sábado";
@@ -914,6 +914,7 @@ async function runOptimization() {
       els.fitnessLabel.textContent = `Mejor fitness: ${Number(data.mejor_fitness).toFixed(2)}`;
     }
     logLine("Resultado recibido y renderizado.");
+    setTimeout(() => guardarGraficasEnServidor().then(() => logLine("Gráficas guardadas en carpeta graficas/.")), 800);
   } catch (e) {
     if (e.name === "AbortError") {
       logLine("Optimización detenida por el usuario.");
@@ -1112,18 +1113,22 @@ function renderVarsCharts(mesData) {
       "chartVarEmisiones","chartVarVelocidad","chartVarImpacto",
     ], "evolucion_variables")));
 
-  // Variables de restricción (enteras, escala fija)
   const varsConfig = [
-    { id: "chartVarH1",    key: "sabados_h1",       label: "Sábados H1",           max: 6, unit: "sáb." },
-    { id: "chartVarH2",    key: "sabados_h2",        label: "Sábados H2",           max: 6, unit: "sáb." },
-    { id: "chartVarExtra", key: "dias_extra_h2",     label: "Días Extra H2",        max: 3, unit: "días" },
-    { id: "chartVarH0",    key: "h0_weekday_count",  label: "Días H0 Entre Semana", max: 3, unit: "días" },
-    { id: "chartVarLH1",   key: "n_light_h1",        label: "Grupos Ligeros H1",    max: 5, unit: "grupos" },
-    { id: "chartVarLH2",   key: "n_light_h2",        label: "Grupos Ligeros H2",    max: 5, unit: "grupos" },
+    { id: "chartVarH1",    key: "sabados_h1",       label: "Sábados H1",           unit: "sáb." },
+    { id: "chartVarH2",    key: "sabados_h2",        label: "Sábados H2",           unit: "sáb." },
+    { id: "chartVarExtra", key: "dias_extra_h2",     label: "Días Extra H2",        unit: "días" },
+    { id: "chartVarH0",    key: "h0_weekday_count",  label: "Días H0 Entre Semana", unit: "días" },
+    { id: "chartVarLH1",   key: "n_light_h1",        label: "Grupos Ligeros H1",    unit: "grupos" },
+    { id: "chartVarLH2",   key: "n_light_h2",        label: "Grupos Ligeros H2",    unit: "grupos" },
   ];
 
-  varsConfig.forEach(({ id, key, label, max, unit }, ci) => {
+  varsConfig.forEach(({ id, key, label, unit }, ci) => {
     const data = hvars.map(v => v[key] ?? 0);
+    const dataMax = data.length ? Math.max(...data) : 0;
+    const dataMin = data.length ? Math.min(...data) : 0;
+    const yMax = Math.max(dataMax + 1, 2);
+    const yMin = 0;
+    const hasVariation = dataMax !== dataMin;
     makeChart(id, {
       type: "line",
       data: {
@@ -1133,16 +1138,21 @@ function renderVarsCharts(mesData) {
           data,
           borderColor: palette[ci],
           backgroundColor: palette[ci] + "22",
-          pointRadius: 1.5, pointHoverRadius: 4,
+          pointRadius: hasVariation ? 2 : 0,
+          pointHoverRadius: 4,
           borderWidth: 2, tension: 0.2, fill: true,
         }],
       },
       options: {
         responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false }, title: { display: true, text: label, font: { size: 12 } } },
+        plugins: {
+          legend: { display: false },
+          title: { display: true, text: label, font: { size: 12 } },
+          tooltip: { callbacks: { label: ctx => `${ctx.parsed.y} ${unit}` } },
+        },
         scales: {
           x: { title: { display: true, text: "Gen." }, ticks: { maxTicksLimit: 10 } },
-          y: { min: 0, max, title: { display: true, text: unit }, ticks: { stepSize: 1 } },
+          y: { min: yMin, max: yMax, title: { display: true, text: unit }, ticks: { stepSize: 1, precision: 0 } },
         },
       },
     });
@@ -1176,12 +1186,17 @@ function renderVarsCharts(mesData) {
     },
   ];
 
-  impactVarsConfig.forEach(({ id, key, label, color, unit, desc }) => {
+  impactVarsConfig.forEach(({ id, key, label, color, unit }) => {
     const data = hvars.map(v => v[key] ?? 0);
     const validData = data.filter(v => v > 0);
     const dataMax = validData.length ? Math.max(...validData) : 100;
     const dataMin = validData.length ? Math.min(...validData) : 0;
-    const pad = (dataMax - dataMin) * 0.1 || dataMax * 0.1 || 1;
+    const range = dataMax - dataMin;
+    const pad = range > 0 ? range * 0.25 : (dataMax > 0 ? dataMax * 0.015 : 1);
+    const yMin = Math.max(0, dataMin - pad);
+    const yMax = dataMax + pad;
+    const hasVariation = range > 0;
+    const decimals = dataMax > 1000 ? 0 : dataMax > 10 ? 1 : 2;
     makeChart(id, {
       type: "line",
       data: {
@@ -1191,7 +1206,8 @@ function renderVarsCharts(mesData) {
           data,
           borderColor: color,
           backgroundColor: color + "22",
-          pointRadius: 1.5, pointHoverRadius: 4,
+          pointRadius: hasVariation ? 1.5 : 0,
+          pointHoverRadius: 4,
           borderWidth: 2, tension: 0.3, fill: true,
         }],
       },
@@ -1200,13 +1216,15 @@ function renderVarsCharts(mesData) {
         plugins: {
           legend: { display: false },
           title: { display: true, text: label, font: { size: 12 } },
-          tooltip: { callbacks: { label: ctx => `${ctx.parsed.y.toFixed(2)} ${unit}` } },
+          tooltip: { callbacks: { label: ctx => `${Number(ctx.parsed.y).toLocaleString("es-MX", { maximumFractionDigits: decimals })} ${unit}` } },
         },
         scales: {
           x: { title: { display: true, text: "Gen." }, ticks: { maxTicksLimit: 10 } },
           y: {
-            min: Math.max(0, dataMin - pad),
+            min: yMin,
+            max: yMax,
             title: { display: true, text: unit },
+            ticks: { callback: v => Number(v).toLocaleString("es-MX", { maximumFractionDigits: decimals }) },
           },
         },
       },
@@ -1243,7 +1261,6 @@ function renderEsquema(anData, normalizedResult) {
 
     colores.forEach(color => {
       const h2c = m?.h2?.por_color?.[color] || {};
-      const hex = COLOR_MAP[color].hex;
       const dia = DIAS_TITULO[h2c.dia_base] || h2c.dia_base || "—";
       const sabs = h2c.sabados?.length ?? 0;
       const extras = h2c.fechas_restriccion?.length ?? 0;
@@ -1320,18 +1337,29 @@ function renderCo2Charts(anData) {
       labels,
       datasets: [
         {
-          label: "CO₂ sin restricción (ton)",
+          label: "CO₂ potencial evitado (ton)",
           data: co2BaseVals,
-          backgroundColor: "rgba(156,163,175,0.5)",
+          backgroundColor: "rgba(156,163,175,0.45)",
           borderColor: "#9ca3af", borderWidth: 1.5, borderRadius: 4,
           order: 2,
         },
         {
-          label: "CO₂ con HNC (ton)",
+          label: "CO₂ real evitado con HNC (ton)",
           data: co2EvitVals,
-          backgroundColor: "rgba(239,68,68,0.65)",
+          backgroundColor: "rgba(239,68,68,0.55)",
           borderColor: "#ef4444", borderWidth: 1.5, borderRadius: 4,
           order: 2,
+        },
+        {
+          type: "line",
+          label: "CO₂ ahorrado neto (ton)",
+          data: co2AhorVals,
+          borderColor: "#16a34a",
+          backgroundColor: "rgba(22,163,74,0.12)",
+          pointRadius: 4, pointHoverRadius: 6, borderWidth: 2,
+          fill: false, tension: 0.35,
+          yAxisID: "y",
+          order: 1,
         },
         {
           type: "line",
@@ -1350,7 +1378,7 @@ function renderCo2Charts(anData) {
       responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { display: true, position: "top", labels: { font: { size: 11 } } },
-        title: { display: true, text: "CO₂ Emitido: Con HNC vs. Sin Restricción + IMECA real", font: { size: 12 } },
+        title: { display: true, text: "CO₂ Evitado: Potencial vs. Real con HNC + Neto + IMECA", font: { size: 12 } },
         tooltip: {
           callbacks: {
             label: ctx => {
@@ -1607,6 +1635,65 @@ function renderIndividuo(mesData, normalizedResult) {
   </div>`;
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GUARDAR GRÁFICAS EN SERVIDOR (carpeta graficas/)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function guardarGraficasEnServidor() {
+  const graficas = [];
+
+  const chartIds = [
+    { id: "chartFitness",       nombre: "evolucion_aptitud" },
+    { id: "chartVarH1",         nombre: "var_sabados_h1" },
+    { id: "chartVarH2",         nombre: "var_sabados_h2" },
+    { id: "chartVarExtra",      nombre: "var_dias_extra" },
+    { id: "chartVarH0",         nombre: "var_h0" },
+    { id: "chartVarLH1",        nombre: "var_ligeros_h1" },
+    { id: "chartVarLH2",        nombre: "var_ligeros_h2" },
+    { id: "chartVarEmisiones",  nombre: "var_emisiones" },
+    { id: "chartVarVelocidad",  nombre: "var_velocidad" },
+    { id: "chartVarImpacto",    nombre: "var_impacto" },
+    { id: "chartCo2",           nombre: "co2_costo_beneficio" },
+    { id: "chartAutos",         nombre: "autos_costo" },
+  ];
+
+  for (const { id, nombre } of chartIds) {
+    const canvas = document.getElementById(id);
+    if (!canvas) continue;
+    try {
+      graficas.push({ nombre, data: canvas.toDataURL("image/png", 1.0) });
+    } catch (_) {}
+  }
+
+  const divIds = [
+    { id: "esquemaTable",   nombre: "esquema_restriccion" },
+    { id: "individuoDetail", nombre: "mejor_individuo" },
+  ];
+
+  const html2canvasAvailable = typeof html2canvas !== "undefined";
+
+  if (html2canvasAvailable) {
+    for (const { id, nombre } of divIds) {
+      const div = document.getElementById(id);
+      if (!div) continue;
+      try {
+        const canvas = await html2canvas(div, { backgroundColor: "#ffffff", scale: 2 });
+        graficas.push({ nombre, data: canvas.toDataURL("image/png", 1.0) });
+      } catch (_) {}
+    }
+  }
+
+  if (!graficas.length) return;
+
+  try {
+    await fetch("/api/guardar-graficas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ graficas }),
+    });
+  } catch (_) {}
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DESCARGA DE GRÁFICAS
