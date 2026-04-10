@@ -654,6 +654,13 @@ function buildFormData() {
     start_month:            els.startMonth?.value || "2026-04",
     meses:                  parseInt(els.horizonteMeses?.value || "6", 10),
   };
+  // Add strategy selections
+  const selEl  = document.getElementById("estrategiaSel");
+  const cruzEl = document.getElementById("estrategiaCruz");
+  const mutEl  = document.getElementById("estrategiaMut");
+  params.estrategia_seleccion = selEl?.value  || "ruleta";
+  params.estrategia_cruza     = cruzEl?.value || "un_punto";
+  params.estrategia_mutacion  = mutEl?.value  || "uniforme";
   fd.append("params", JSON.stringify(params));
   if (state.files.eodSemana)     fd.append("eodEntreSemanaXlsx", state.files.eodSemana);
   if (state.files.eodSabado)     fd.append("eodSabado",           state.files.eodSabado);
@@ -818,6 +825,14 @@ function renderAnalytics(normalizedResult, rawAnalytics) {
     };
   });
 
+  // Show strategy info if available
+  const stratDiv = document.getElementById("strategyInfo");
+  if (stratDiv && normalizedResult?.estrategias_usadas) {
+    const s = normalizedResult.estrategias_usadas;
+    stratDiv.textContent = `Selección: ${s.seleccion} | Cruzamiento: ${s.cruza} | Mutación: ${s.mutacion}`;
+    stratDiv.classList.remove("hidden");
+  }
+
   renderActiveTab(anData, normalizedResult);
 }
 
@@ -841,6 +856,7 @@ function renderFitnessChart(mesData) {
   const lbl = document.getElementById("fitnessMesLabel");
   if (lbl) lbl.textContent = `${MONTH_NAMES[(mesData.mes||1)-1]} ${mesData.year} · ${gens} generaciones`;
 
+  injectDownloadBtn("tabFitness", makeDownloadBtn("Descargar PNG", () => downloadCanvas("chartFitness", `evolucion_aptitud_${MONTH_NAMES[(mesData.mes||1)-1]}_${mesData.year}`)));
   makeChart("chartFitness", {
     type: "line",
     data: {
@@ -892,6 +908,8 @@ function renderVarsCharts(mesData) {
   const gens = hvars.map((_, i) => i + 1);
   const palette = ["#dc2626","#f97316","#16a34a","#2563eb","#9333ea","#0891b2"];
 
+  injectDownloadBtn("tabVars", makeDownloadBtn("Descargar PNG (todas)", () =>
+    downloadMultiCanvas(["chartVarH1","chartVarH2","chartVarExtra","chartVarH0","chartVarLH1","chartVarLH2"], "evolucion_variables")));
   const varsConfig = [
     { id: "chartVarH1",    key: "sabados_h1",       label: "Sábados H1",           max: 6  },
     { id: "chartVarH2",    key: "sabados_h2",        label: "Sábados H2",           max: 6  },
@@ -970,6 +988,7 @@ function renderEsquema(anData, normalizedResult) {
   });
   html += "</tbody></table>";
   wrap.innerHTML = html;
+  injectDownloadBtn("tabEsquema", makeDownloadBtn("Descargar PNG", () => downloadDivAsImage("esquemaTable", "esquema_restriccion_optimo")));
 }
 
 // ── TAB 4: CO₂ / Costo-Beneficio ─────────────────────────────────────────────
@@ -989,6 +1008,8 @@ function renderCo2Charts(anData) {
   const co2Vals = anData.map(m => m.co2_evitado_ton || 0);
   const autosVals = anData.map(m => m.autos_dia_millones || 0);
 
+  injectDownloadBtn("tabCo2", makeDownloadBtn("Descargar PNG", () =>
+    downloadMultiCanvas(["chartCo2","chartAutos"], "costo_beneficio_co2")));
   makeChart("chartCo2", {
     type: "bar",
     data: {
@@ -1089,6 +1110,7 @@ function renderIndividuo(mesData, normalizedResult) {
     </div>`;
   }).join("");
 
+  injectDownloadBtn("tabIndividuo", makeDownloadBtn("Descargar PNG", () => downloadDivAsImage("individuoDetail", "mejor_individuo")));
   wrap.innerHTML = `
     <div class="individuo-info">
       <div class="individuo-info-title">📊 Parámetros del Mejor Individuo</div>
@@ -1100,6 +1122,81 @@ function renderIndividuo(mesData, normalizedResult) {
       <div class="colors-title">🎨 Asignación por Grupo de Color — H2</div>
       ${colorRows}
     </div>`;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DESCARGA DE GRÁFICAS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function downloadCanvas(canvasId, filename) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const link = document.createElement("a");
+  link.download = filename + ".png";
+  link.href = canvas.toDataURL("image/png", 1.0);
+  link.click();
+}
+
+function downloadMultiCanvas(canvasIds, filename) {
+  // Merge multiple canvases into one wide image and download
+  const canvases = canvasIds.map(id => document.getElementById(id)).filter(Boolean);
+  if (!canvases.length) return;
+  const cols = 3;
+  const rows = Math.ceil(canvases.length / cols);
+  const cw = canvases[0].width; const ch = canvases[0].height;
+  const merged = document.createElement("canvas");
+  merged.width = cw * cols; merged.height = ch * rows;
+  const ctx = merged.getContext("2d");
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, merged.width, merged.height);
+  canvases.forEach((c, i) => {
+    const col = i % cols; const row = Math.floor(i / cols);
+    ctx.drawImage(c, col * cw, row * ch);
+  });
+  const link = document.createElement("a");
+  link.download = filename + ".png";
+  link.href = merged.toDataURL("image/png", 1.0);
+  link.click();
+}
+
+function downloadDivAsImage(divId, filename) {
+  // Uses html2canvas if available, otherwise falls back to plain PNG
+  const div = document.getElementById(divId);
+  if (!div) return;
+  if (typeof html2canvas !== "undefined") {
+    html2canvas(div, { backgroundColor: "#ffffff", scale: 2 }).then(canvas => {
+      const link = document.createElement("a");
+      link.download = filename + ".png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+  } else {
+    // Fallback: open print dialog for the section
+    alert("Instala html2canvas para descarga directa. Por ahora usa Ctrl+P para imprimir esta sección.");
+  }
+}
+
+function makeDownloadBtn(label, onClickFn) {
+  const btn = document.createElement("button");
+  btn.className = "ghost small-btn dl-btn";
+  btn.innerHTML = "⬇ " + label;
+  btn.style.cssText = "font-size:0.78rem;padding:4px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;flex-shrink:0;margin-left:auto";
+  btn.addEventListener("click", onClickFn);
+  return btn;
+}
+
+function injectDownloadBtn(panelId, btn) {
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+  const header = panel.querySelector(".chart-header");
+  if (!header) return;
+  // Remove existing download btn
+  panel.querySelector(".dl-btn")?.remove();
+  header.style.display = "flex";
+  header.style.alignItems = "flex-start";
+  header.style.justifyContent = "space-between";
+  header.style.gap = "8px";
+  header.appendChild(btn);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

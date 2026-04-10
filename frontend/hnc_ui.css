@@ -252,3 +252,6 @@ button.ghost { background:#fff; }
 @media (max-width: 600px) {
   .vars-grid { grid-template-columns: 1fr; }
 }
+
+.dl-btn { background:#f0fdf4; color:#15803d; border-color:#bbf7d0; }
+.dl-btn:hover { background:#dcfce7; }

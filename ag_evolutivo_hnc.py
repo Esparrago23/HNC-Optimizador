@@ -790,24 +790,6 @@ def mutar_reset(individuo: List[float], prob: float) -> List[float]:
     return [random.random() if random.random() < prob else g for g in individuo]
 
 
-# ── Tabla de estrategias disponibles ─────────────────────────────────────────
-ESTRATEGIAS_SELECCION = {
-    "ruleta":   seleccion_ruleta,
-    "torneo":   seleccion_torneo,
-    "ranking":  seleccion_ranking,
-}
-ESTRATEGIAS_CRUZA = {
-    "un_punto": cruza_un_punto,
-    "dos_puntos": cruza_dos_puntos,
-    "uniforme": cruza_uniforme,
-}
-ESTRATEGIAS_MUTACION = {
-    "uniforme":   mutar_uniforme,
-    "gaussiana":  mutar_gaussiana,
-    "reset":      mutar_reset,
-}
-
-
 def aptitud(individuo, factor_mensual, factor_sabado=1.0, total_sabados=4, nivel_imeca=150.0) -> float:
     return funcion_objetivo(individuo, factor_mensual, factor_sabado, total_sabados, nivel_imeca)
 
@@ -844,6 +826,24 @@ def poda(poblacion, factor_mensual, factor_sabado, total_sabados, tam, nivel_ime
         key=lambda i: aptitud(i, factor_mensual, factor_sabado, total_sabados, nivel_imeca),
         reverse=True
     )[:tam]]
+
+
+# ── Tabla de estrategias disponibles ─────────────────────────────────────────
+ESTRATEGIAS_SELECCION = {
+    "ruleta":   seleccion_ruleta,
+    "torneo":   seleccion_torneo,
+    "ranking":  seleccion_ranking,
+}
+ESTRATEGIAS_CRUZA = {
+    "un_punto":   cruza_un_punto,
+    "dos_puntos": cruza_dos_puntos,
+    "uniforme":   cruza_uniforme,
+}
+ESTRATEGIAS_MUTACION = {
+    "uniforme":  mutar_uniforme,
+    "gaussiana": mutar_gaussiana,
+    "reset":     mutar_reset,
+}
 
 
 # ============================================================================

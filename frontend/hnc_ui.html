@@ -122,6 +122,33 @@
           <input type="number" id="pesoEconomico" min="0.2" max="5" step="0.05" />
         </label>
       </div>
+      <!-- Estrategias del AG -->
+      <div style="margin-top:12px; padding-top:10px; border-top:1px dashed var(--line)">
+        <p class="small" style="margin:0 0 8px;font-weight:600;color:var(--ink)">Estrategias del AG</p>
+        <div class="grid-3">
+          <label>Selección
+            <select id="estrategiaSel">
+              <option value="ruleta">Ruleta (proporcional)</option>
+              <option value="torneo">Torneo (k=3)</option>
+              <option value="ranking">Ranking lineal</option>
+            </select>
+          </label>
+          <label>Cruzamiento
+            <select id="estrategiaCruz">
+              <option value="un_punto">Un punto</option>
+              <option value="dos_puntos">Dos puntos</option>
+              <option value="uniforme">Uniforme</option>
+            </select>
+          </label>
+          <label>Mutación
+            <select id="estrategiaMut">
+              <option value="uniforme">Uniforme (±0.1)</option>
+              <option value="gaussiana">Gaussiana (σ=0.05)</option>
+              <option value="reset">Reset aleatorio</option>
+            </select>
+          </label>
+        </div>
+      </div>
       <div class="actions" style="margin-top:12px">
         <button class="ghost small-btn" id="btnResetDefaults" type="button">Restablecer valores por defecto</button>
       </div>
@@ -231,6 +258,7 @@
       <h2>5) Análisis del Algoritmo Genético</h2>
 
       <!-- Selector de mes para analytics -->
+      <div id="strategyInfo" class="hidden" style="font-size:0.78rem;color:var(--muted);background:#f8fafb;border:1px solid var(--line);border-radius:6px;padding:5px 10px;margin-bottom:8px;"></div>
       <div class="analytics-month-bar">
         <span class="analytics-month-label">Mes analizado:</span>
         <div id="analyticsMesTabs" class="analytics-mes-tabs"></div>
@@ -303,6 +331,7 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="hnc_ui.js?v=20260409-2"></script>
 </body>
 </html>
