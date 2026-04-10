@@ -14,7 +14,6 @@
     </div>
     <div class="status-pill" id="globalStatus">Listo para configurar</div>
   </header>
-  <div class="server-note">Ejecuta <code>python backend/hnc_server.py</code> y abre <code>http://127.0.0.1:8000</code> para conectar el backend.</div>
 
   <main class="layout">
 
@@ -31,12 +30,11 @@
       <div id="panelDemo">
         <div class="demo-info-card">
           <div class="demo-status-row">
-            <span id="demoStatusIcon">⏳</span>
             <span id="demoStatusText">Verifica que el backend esté activo.</span>
           </div>
           <div id="demoVehicleSummary" class="demo-vehicle-grid hidden"></div>
         </div>
-        <button class="ghost small-btn" id="btnVerificar" style="margin-top:8px">↻ Verificar datos</button>
+        <button class="ghost small-btn" id="btnVerificar" style="margin-top:8px">Verificar datos</button>
         <p class="small" style="margin-top:6px">El backend carga automáticamente <code>data/entorno_cdmx.json</code>. No necesitas subir archivos para correr el modelo.</p>
       </div>
 
@@ -86,14 +84,14 @@
       <div class="imeca-block">
         <div class="imeca-header">
           <span class="imeca-label">Nivel IMECA — escenario de contaminación</span>
-          <span class="imeca-badge" id="imecaBadge" style="background:#dc2626">Muy Mala — 151</span>
+          <span class="imeca-badge" id="imecaBadge" style="background:#ef4444">Muy Mala — 151</span>
         </div>
         <input type="range" id="imecaSlider" min="0" max="400" step="5" value="151" class="imeca-slider" />
         <div class="imeca-zones-bar">
           <span style="background:#16a34a;color:#fff">Buena<br/><small>0–50</small></span>
-          <span style="background:#eab308;color:#1a1a1a">Aceptable<br/><small>51–100</small></span>
+          <span style="background:#eab308;color:#fff">Aceptable<br/><small>51–100</small></span>
           <span style="background:#f97316;color:#fff">Mala<br/><small>101–150</small></span>
-          <span style="background:#dc2626;color:#fff">Muy Mala<br/><small>151–200</small></span>
+          <span style="background:#ef4444;color:#fff">Muy Mala<br/><small>151–200</small></span>
           <span style="background:#8b5cf6;color:#fff">Extremadamente Mala<br/><small>201+</small></span>
         </div>
         <p class="small" style="margin:6px 0 0">Simula distintos niveles de alerta. Actualiza el <em>peso ambiental crítico</em> del AG automáticamente.</p>
@@ -152,7 +150,6 @@
       <div class="actions" style="margin-top:12px">
         <button class="ghost small-btn" id="btnResetDefaults" type="button">Restablecer valores por defecto</button>
       </div>
-      <div class="small" style="margin-top:8px">Modelo híbrido: 6–10h fuerte · 10–16h ligera · 17–20h media · 20–22h mínima</div>
     </section>
 
     <!-- ═══════════════════════ SECCIÓN 3 — EJECUCIÓN ════════════════════ -->
@@ -172,14 +169,6 @@
       </div>
 
       <pre id="logBox" class="log" aria-live="polite"></pre>
-    </section>
-
-    <!-- ═══════════════════════ SECCIÓN 4 — RESULTADOS ═══════════════════ -->
-    <section class="card" id="resultados">
-      <h2>4) Calendario Oficial Óptimo</h2>
-      <div class="actions">
-        <button id="btnExport" class="primary" disabled>Exportar Dictamen</button>
-      </div>
 
       <!-- Stats strip -->
       <div id="statsStrip" class="stats-strip hidden">
@@ -208,6 +197,23 @@
       <!-- Hybrid summary -->
       <div id="hybridSummary" class="hybrid-summary hidden"></div>
 
+      <div class="zone-explainer">
+        <div class="zone-explainer-title">Zonas de aplicación en CDMX</div>
+        <div class="zone-explainer-grid">
+          <div><strong>Centro</strong><span>Cuauhtémoc, Benito Juárez, Miguel Hidalgo, Venustiano Carranza, Coyoacán, Iztacalco y Álvaro Obregón.</span></div>
+          <div><strong>Total</strong><span>Toda la Ciudad de México, sin recorte por zona (las 16 alcaldías).</span></div>
+          <div><strong>Periferia</strong><span>Azcapotzalco, Gustavo A. Madero, Iztapalapa, Cuajimalpa, La Magdalena Contreras, Tlalpan, Xochimilco, Tláhuac y Milpa Alta.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════ SECCIÓN 4 — RESULTADOS ═══════════════════ -->
+    <section class="card" id="resultados">
+      <h2>4) Calendario Oficial Óptimo</h2>
+      <div class="actions">
+        <button id="btnExport" class="primary" disabled>Exportar Dictamen</button>
+      </div>
+
       <!-- Calendar filters -->
       <div class="grid-3 calendar-filters">
         <label>Holograma
@@ -221,19 +227,13 @@
         <label>Último dígito de placa
           <select id="vehDigito"></select>
         </label>
-        <label>Vista
-          <select id="viewMode">
-            <option value="no-circula" selected>No circula (resaltado)</option>
-            <option value="all">Todos los días</option>
-          </select>
-        </label>
       </div>
 
       <div id="calendarPanel" class="calendar-panel hidden">
         <div class="cal-head">
-          <button id="btnPrevMonth" class="ghost nav-btn" aria-label="Mes anterior">&#x2039;</button>
+          <button id="btnPrevMonth" class="ghost nav-btn" aria-label="Mes anterior">Mes anterior</button>
           <h3 id="calendarTitle">—</h3>
-          <button id="btnNextMonth" class="ghost nav-btn" aria-label="Mes siguiente">&#x203A;</button>
+          <button id="btnNextMonth" class="ghost nav-btn" aria-label="Mes siguiente">Mes siguiente</button>
         </div>
 
         <div id="monthTabsWrap" class="month-tabs-wrap"></div>
@@ -241,10 +241,11 @@
         <div class="calendar-grid" id="calendarGrid"></div>
 
         <div class="legend">
-          <span><i class="dot blocked"></i>No circula</span>
-          <span><i class="dot allowed"></i>Circula libre</span>
-          <span><i class="dot contingency"></i>Contingencia</span>
-          <span><i class="dot" style="background:#6366f1"></i>Punto = dígito restringido</span>
+          <span><i class="dot" style="background:#2563eb"></i>Puntos azules: 0 y 9</span>
+          <span><i class="dot" style="background:#16a34a"></i>Puntos verdes: 1 y 2</span>
+          <span><i class="dot" style="background:#ef4444"></i>Puntos rojos: 3 y 4</span>
+          <span><i class="dot" style="background:#eab308"></i>Puntos amarillos: 5 y 6</span>
+          <span><i class="dot" style="background:#ec4899"></i>Puntos rosas: 7 y 8</span>
         </div>
 
         <div id="dayDetail" class="day-detail">Selecciona un día para ver el detalle.</div>
@@ -266,11 +267,11 @@
 
       <!-- Tabs de vista -->
       <div class="analytics-tabs">
-        <button class="analytics-tab active" data-tab="fitness">📈 Evolución Aptitud</button>
-        <button class="analytics-tab" data-tab="vars">🔧 Variables AG</button>
-        <button class="analytics-tab" data-tab="esquema">📋 Esquema Óptimo</button>
-        <button class="analytics-tab" data-tab="co2">🌿 CO₂ / Costo</button>
-        <button class="analytics-tab" data-tab="individuo">🏆 Mejor Individuo</button>
+        <button class="analytics-tab active" data-tab="fitness">Evolución Aptitud</button>
+        <button class="analytics-tab" data-tab="vars">Variables AG</button>
+        <button class="analytics-tab" data-tab="esquema">Esquema Óptimo</button>
+        <button class="analytics-tab" data-tab="co2">CO₂ / Costo</button>
+        <button class="analytics-tab" data-tab="individuo">Mejor Individuo</button>
       </div>
 
       <!-- TAB: Evolución de aptitud -->

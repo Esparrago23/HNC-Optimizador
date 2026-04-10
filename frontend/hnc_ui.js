@@ -11,12 +11,12 @@ const FALLBACK_DEFAULTS = {
     peso_equidad: 1, peso_ambiental_critico: 2.2, peso_economico: 1.55,
     nivel_imeca: 150, start_month: "2026-04", meses: 6,
   },
-  ui: { imeca: 151, veh_holograma: "H1", veh_digito: "all", view_mode: "no-circula" },
+  ui: { imeca: 151, veh_holograma: "H1", veh_digito: "all" },
 };
 
 const DAYS = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
 const DIGIT_COLOR = {
-  0:"#2563eb", 9:"#2563eb", 1:"#16a34a", 2:"#16a34a", 3:"#dc2626", 4:"#dc2626",
+  0:"#2563eb", 9:"#2563eb", 1:"#16a34a", 2:"#16a34a", 3:"#ef4444", 4:"#ef4444",
   5:"#eab308", 6:"#eab308", 7:"#ec4899", 8:"#ec4899",
 };
 const MONTH_NAMES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -45,7 +45,6 @@ function initializeDOM() {
   els.tabAdvanced = document.getElementById("tabAdvanced") || document.createElement("div");
   els.panelDemo = document.getElementById("panelDemo") || document.createElement("div");
   els.panelAdvanced = document.getElementById("panelAdvanced") || document.createElement("div");
-  els.demoStatusIcon = document.getElementById("demoStatusIcon") || document.createElement("div");
   els.demoStatusText = document.getElementById("demoStatusText") || document.createElement("div");
   els.demoVehicleSummary = document.getElementById("demoVehicleSummary") || document.createElement("div");
   els.btnVerificar = document.getElementById("btnVerificar") || document.createElement("button");
@@ -84,7 +83,6 @@ function initializeDOM() {
   els.hybridSummary = document.getElementById("hybridSummary") || document.createElement("div");
   els.vehHolograma = document.getElementById("vehHolograma") || document.createElement("select");
   els.vehDigito = document.getElementById("vehDigito") || document.createElement("select");
-  els.viewMode = document.getElementById("viewMode") || document.createElement("select");
   els.calendarPanel = document.getElementById("calendarPanel") || document.createElement("div");
   els.calendarTitle = document.getElementById("calendarTitle") || document.createElement("div");
   els.calendarGrid = document.getElementById("calendarGrid") || document.createElement("div");
@@ -155,9 +153,6 @@ function applyConfigToUI(config) {
   if (els.vehDigito) {
     els.vehDigito.value = normalized.ui.veh_digito;
   }
-  if (els.viewMode) {
-    els.viewMode.value = normalized.ui.view_mode;
-  }
   syncClimateControls("imeca");
   updateEnvSummary();
 }
@@ -167,7 +162,7 @@ function imecaClassify(value) {
   if (imeca <= 50) return { label: "Buena", color: "#16a34a" };
   if (imeca <= 100) return { label: "Aceptable", color: "#eab308" };
   if (imeca <= 150) return { label: "Mala", color: "#f97316" };
-  if (imeca <= 200) return { label: "Muy Mala", color: "#dc2626" };
+  if (imeca <= 200) return { label: "Muy Mala", color: "#ef4444" };
   return { label: "Extremadamente Mala", color: "#8b5cf6" };
 }
 
@@ -427,6 +422,9 @@ function renderCalendarGrid() {
     if (!isOutsideMonth) {
       const restrictedDigits = getRestrictedDigitsForDay(monthData, holograma, currentDate);
       const displayDigits = digitoFilter === "all" ? restrictedDigits : restrictedDigits.filter(d => parseInt(digitoFilter) === d);
+      if (digitoFilter !== "all" && displayDigits.length > 0) {
+        dayEl.classList.add("blocked");
+      }
       if (displayDigits.length > 0) {
         const dotsContainer = document.createElement("div");
         dotsContainer.className = "day-dot-wrap";
@@ -532,22 +530,13 @@ function renderDayDetail() {
   let html = `<strong>${dayName}, ${dt.getDate()} de ${MONTH_NAMES[month-1]}</strong><br/>`;
   html += `<span class="detail-label">Holograma ${holograma}:</span> ${dayHorario} | Zona: ${dayZona}<br/>`;
   if (matchedColors.length > 0) {
-    html += `<strong>Restricciones por color:</strong><br/>`;
-    for (const { color, info } of matchedColors) {
-      const placas = info.placas?.join(",") || "—";
-      const iNormal = (!isDateOnlyHologram && info.dia_normal === dayName) ? " ✓" : "";
-      const fechasExtra = Array.isArray(info.fechas_extra) ? info.fechas_extra : [];
-      const fechasRestr = Array.isArray(info.fechas_restriccion) ? info.fechas_restriccion : [];
-      const extrasTxt = fechasRestr.length
-        ? ` | fechas: ${fechasRestr.join(", ")}`
-        : (fechasExtra.length ? ` | extras: ${fechasExtra.join(", ")}` : "");
-      const colorHorario = info.horario || "—";
-      const colorZona = `${(info.zona||"total").slice(0,1).toUpperCase()}${(info.zona||"total").slice(1)}`;
-      html += `<div class="detail-row">
-        <span class="detail-label">${color}${iNormal}</span>
-        <span class="detail-val">Placas: ${placas} | ${colorHorario} | ${colorZona}${extrasTxt}</span>
-      </div>`;
-    }
+    const digitosRestringidos = [...new Set(
+      matchedColors
+        .flatMap(({ info }) => Array.isArray(info.placas) ? info.placas : [])
+        .map(Number)
+        .filter(d => !Number.isNaN(d))
+    )].sort((a, b) => a - b);
+    html += `<strong>Dígitos de placa restringidos:</strong> ${digitosRestringidos.join(", ") || "—"}`;
   } else {
     html += `<em>Sin restricciones activas.</em>`;
   }
@@ -621,10 +610,8 @@ function updateEnvSummary() {
 }
 
 async function verifyBackend() {
-  if (!els.demoStatusIcon || !els.demoStatusText) return;
   const data = await fetchJSON("/api/config-inicial");
   if (data?.status === "ok") {
-    els.demoStatusIcon.textContent = "✅";
     els.demoStatusText.textContent = "Backend activo. Datos del entorno cargados.";
     applyConfigToUI(data);
     const lastResult = await fetchJSON("/api/ultimo-resultado");
@@ -635,7 +622,6 @@ async function verifyBackend() {
       renderAnalytics(state.result, lastResult.analytics);
     }
   } else {
-    els.demoStatusIcon.textContent = "❌";
     els.demoStatusText.textContent = "Backend no disponible. Inicia el servidor primero.";
   }
 }
@@ -676,7 +662,7 @@ async function runOptimization() {
   state.stopRequested = false;
   state.runController = new AbortController();
   setRunningUi(true, "Optimizando...");
-  if (els.logBox) els.logBox.innerHTML = "<p>🚀 Iniciando optimización...</p><p>⏳ El AG puede tardar varios minutos según el número de generaciones.</p>";
+  if (els.logBox) els.logBox.innerHTML = "<p>Iniciando optimización.</p><p>El AG puede tardar varios minutos según el número de generaciones.</p>";
   if (els.progressFill) els.progressFill.style.width = "0%";
 
   try {
@@ -710,18 +696,18 @@ async function runOptimization() {
     renderAll();
     setResultsVisible(true);
     renderAnalytics(state.result, data.analytics);
-    setRunningUi(false, "✅ Optimización completada");
+    setRunningUi(false, "Optimización completada");
     if (els.generationLabel) els.generationLabel.textContent = `Generación: ${generaciones} / ${generaciones}`;
     if (els.fitnessLabel && data.mejor_fitness != null) {
       els.fitnessLabel.textContent = `Mejor fitness: ${Number(data.mejor_fitness).toFixed(2)}`;
     }
-    logLine("✅ Resultado recibido y renderizado.");
+    logLine("Resultado recibido y renderizado.");
   } catch (e) {
     if (e.name === "AbortError") {
-      logLine("⏹ Optimización detenida por el usuario.");
+      logLine("Optimización detenida por el usuario.");
       setRunningUi(false, "Detenido");
     } else {
-      logLine(`❌ Error: ${e.message}`);
+      logLine(`Error: ${e.message}`);
       setRunningUi(false, "Error");
     }
   } finally {
@@ -1113,13 +1099,13 @@ function renderIndividuo(mesData, normalizedResult) {
   injectDownloadBtn("tabIndividuo", makeDownloadBtn("Descargar PNG", () => downloadDivAsImage("individuoDetail", "mejor_individuo")));
   wrap.innerHTML = `
     <div class="individuo-info">
-      <div class="individuo-info-title">📊 Parámetros del Mejor Individuo</div>
+      <div class="individuo-info-title">Parámetros del Mejor Individuo</div>
       <div class="individuo-kv">
         ${kvRows.map(([k,v]) => `<div class="kv-row"><span class="kv-label">${k}</span><span class="kv-value">${v}</span></div>`).join("")}
       </div>
     </div>
     <div class="individuo-colors">
-      <div class="colors-title">🎨 Asignación por Grupo de Color — H2</div>
+      <div class="colors-title">Asignación por Grupo de Color — H2</div>
       ${colorRows}
     </div>`;
 }
@@ -1179,7 +1165,7 @@ function downloadDivAsImage(divId, filename) {
 function makeDownloadBtn(label, onClickFn) {
   const btn = document.createElement("button");
   btn.className = "ghost small-btn dl-btn";
-  btn.innerHTML = "⬇ " + label;
+  btn.textContent = label;
   btn.style.cssText = "font-size:0.78rem;padding:4px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;flex-shrink:0;margin-left:auto";
   btn.addEventListener("click", onClickFn);
   return btn;
@@ -1244,7 +1230,7 @@ function init() {
   els.btnResetDefaults?.addEventListener("click", () => applyConfigToUI(state.defaults || FALLBACK_DEFAULTS));
 
   // Calendar filters
-  [els.vehHolograma, els.vehDigito, els.viewMode].forEach(el => {
+  [els.vehHolograma, els.vehDigito].forEach(el => {
     el?.addEventListener("change", () => { renderCalendarGrid(); renderDayDetail(); });
   });
 
