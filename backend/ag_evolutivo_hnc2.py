@@ -13,13 +13,13 @@ DEFAULT_POP_SIZE = 100
 DEFAULT_GENERATIONS = 120
 
 DEFAULT_PARAMS = {
-    "pop_size": 100, "generaciones": 120, "mutacion": 0.05, "elitismo": 1,
+    "pop_size": 100, "generaciones": 120, "mutacion": 0.08, "elitismo": 2,
     "peso_equidad": 1, "peso_ambiental_critico": 2.2, "peso_economico": 1.55,
     "nivel_imeca": 150, "start_month": "2026-04", "meses": 6,
-    "prob_cruza": 0.60,
-    "estrategia_seleccion": "ruleta",
-    "estrategia_cruza":     "uniforme",
-    "estrategia_mutacion":  "uniforme",
+    "prob_cruza": 0.75,
+    "estrategia_seleccion": "torneo",
+    "estrategia_cruza":     "dos_puntos",
+    "estrategia_mutacion":  "gaussiana",
 }
 
 GRUPOS_PLACA = {"Amarillo": [5, 6], "Rosa": [7, 8], "Rojo": [3, 4], "Verde": [1, 2], "Azul": [9, 0]}
@@ -606,36 +606,31 @@ def FuncionAptitud(
     factor_imeca = 1.0 + max(0.0, (nivel_imeca - 100) / 100.0) * (peso_ambiental - 1.0)
     fitness_base = (v_bpr / (E * factor_imeca + IE * peso_economico + EPSILON)) * 1e6
 
-    # Penalizar días ligeros (hora=16) cuando la contaminación es alta.
-    # A mayor IMECA, más necesaria la restricción completa (22:00); usar 16:00 reduce el impacto real.
+    # Penalización ligera por días horario=16 cuando IMECA es muy alto.
+    # Se redujo al mínimo para que el AG explore libremente y llegue al mejor equilibrio.
     n_l_h1   = int(d_ag.get("n_light_h1", 0))
     n_l_h2   = int(d_ag.get("n_light_h2", 0))
     n_l_total = n_l_h1 + n_l_h2
-    # Factor 0 si IMECA ≤ 100 (buena/aceptable), crece hasta 1 en IMECA=300
     _imeca_factor = max(0.0, (nivel_imeca - 100) / 200.0)
-    penalizador_ligero = 1.0 - (n_l_total * _imeca_factor * 0.06)
+    penalizador_ligero = 1.0 - (n_l_total * _imeca_factor * 0.015)   # muy suave
 
-    # Penalizar escalera incoherente H2: días extra sin haber maximizado sábados primero.
-    # Ej: 3 sáb + 2 extras en mes de 4 sáb → confuso y regresivo (ciudadanía no lo acepta).
-    # La escalera correcta es: llenar sábados → luego agregar extras.
+    # Penalización mínima por escalera H2 incoherente (extras antes de llenar sábados).
     if h2_ex > 0 and h2_sabs < total_sabados:
         _sab_faltantes = total_sabados - h2_sabs
-        penalizador_escalera = max(0.05, 0.4 ** (h2_ex * _sab_faltantes))
+        penalizador_escalera = max(0.70, 1.0 - 0.05 * h2_ex * _sab_faltantes)
     else:
         penalizador_escalera = 1.0
 
-    # Bonus de proporcionalidad: en contaminación baja los días ligeros son la política
-    # correcta (menos impacto económico, restricción ajustada al nivel de IMECA).
-    # Compensa la pérdida de cobertura R que el fitness base no valora positivamente.
+    # Bonus por restricción proporcional al nivel IMECA.
     _n_centro_h1 = int(d_ag.get("n_centro_h1", 0))
-    if nivel_imeca <= 50:   # buena: bonus por hora=16 y extra por zona Centro
-        _bonus_proporcional = 1.0 + n_l_h1 * 0.05 + _n_centro_h1 * 0.03
-    elif nivel_imeca <= 100:  # aceptable: bonus moderado por hora=16 Total
-        _bonus_proporcional = 1.0 + n_l_h1 * 0.025
+    if nivel_imeca <= 50:
+        _bonus_proporcional = 1.0 + n_l_h1 * 0.07 + _n_centro_h1 * 0.04
+    elif nivel_imeca <= 100:
+        _bonus_proporcional = 1.0 + n_l_h1 * 0.04
     else:
         _bonus_proporcional = 1.0
 
-    return fitness_base * max(0.1, penalizador_ligero) * penalizador_escalera * _bonus_proporcional
+    return fitness_base * max(0.5, penalizador_ligero) * penalizador_escalera * _bonus_proporcional
 
 
 def FuncionGeneracionParejas(
@@ -748,20 +743,20 @@ def ejecutar_algoritmo_genetico(
     nivel_imeca: float = 150.0,
     pop_size: int = DEFAULT_POP_SIZE,
     generaciones: int = DEFAULT_GENERATIONS,
-    prob_cruza: float = 0.60,
-    prob_mutacion: float = 0.05,
+    prob_cruza: float = 0.75,
+    prob_mutacion: float = 0.08,
     elitismo: int = 2,
-    estrategia_seleccion: str = "ruleta",
-    estrategia_cruza: str = "un_punto",
-    estrategia_mutacion: str = "uniforme",
+    estrategia_seleccion: str = "torneo",
+    estrategia_cruza: str = "dos_puntos",
+    estrategia_mutacion: str = "gaussiana",
     entorno: Optional[Dict[str, Any]] = None,
     peso_ambiental: float = 2.2,
     peso_economico: float = 1.55,
     peso_equidad: float = 1.0,
-    stagnacion_umbral: int = 15,
-    mutacion_max: float = 0.35,
-    inyeccion_pct: float = 0.10,
-    diversidad_minima: float = 0.04,
+    stagnacion_umbral: int = 10,
+    mutacion_max: float = 0.50,
+    inyeccion_pct: float = 0.20,
+    diversidad_minima: float = 0.02,
 ) -> Dict[str, Any]:
     env = entorno or {}
 
@@ -792,13 +787,61 @@ def ejecutar_algoritmo_genetico(
 
         decoded_gen = decodificar_individuo(mejor_ind_gen, total_sabados, nivel_imeca)
         d_ag_gen    = decoded_gen["decisiones_ag"]
+
+        # ── métricas derivadas para las 3 gráficas adicionales ──────────────
+        _d_g     = d_ag_gen
+        _cum_g   = float(env.get("cumplimiento_ciudadano", 0.85))
+        _dias_g  = 30
+        _h1s_g   = int(_d_g.get("sabados_h1", 0))
+        _h2s_g   = int(_d_g.get("sabados_h2", 0))
+        _h2x_g   = int(_d_g.get("dias_extra_h2", 0))
+        _h0_g    = int(_d_g.get("h0_weekday_count", 0))
+        _cov1_g  = float(_d_g.get("cov_h1_avg", 1.0))
+        _cov2_g  = float(_d_g.get("cov_h2_avg", 1.0))
+        _dh_g    = max(1, _dias_g - total_sabados)
+        _R_g = {
+            "H00": 0.0,
+            "H0" : _cum_g * (_h0_g / max(1, _dias_g)),
+            "H1" : _cum_g * ((_dh_g / 5 + _h1s_g) / _dias_g) * _cov1_g,
+            "H2" : _cum_g * ((_dh_g / 5 + _h2s_g + _h2x_g) / _dias_g) * _cov2_g,
+        }
+        _veh_g  = env.get("vehiculos", {})
+        _D_g    = float(env.get("distancia_promedio_km", 24.0))
+        # Emisiones totales (gr/km): suma contaminantes ponderada por vehículos activos
+        _E_g = sum(
+            float(v.get("total", 0)) * (1.0 - _R_g.get(h, 0.0))
+            * float(v.get("ef", 1.0)) * _D_g
+            for h, v in _veh_g.items()
+        ) if _veh_g else (
+            nivel_imeca * (1.0 - (_R_g["H1"] + _R_g["H2"]) / 2.0)
+        )
+        # Velocidad promedio BPR (km/h)
+        _M_g    = sum(float(v.get("total", 0)) * (1.0 - _R_g.get(h, 0.0)) for h, v in _veh_g.items())
+        _trafico_g = env.get("trafico", {})
+        _vf_g   = float(_trafico_g.get("v_f", 45.0))
+        _C_g    = float(_trafico_g.get("capacidad_c", 3_500_000))
+        _α_g    = float(_trafico_g.get("alpha", 0.15))
+        _β_g    = float(_trafico_g.get("beta", 4.0))
+        _vbpr_g = _vf_g / (1.0 + _α_g * (_M_g / max(_C_g, 1.0)) ** _β_g)
+        # Impacto económico: viajes laborales cancelados/retrasados (miles)
+        _IE_g = sum(
+            _R_g.get(h, 0.0) * float(v.get("total", 0))
+            * float(v.get("p_l", 0.3)) * float(v.get("costo", 1.0))
+            for h, v in _veh_g.items()
+        ) if _veh_g else (
+            (_R_g["H1"] + _R_g["H2"]) / 2.0 * 6_000_000 * 0.29
+        )
+
         historial_vars.append({
-            "sabados_h1":       int(d_ag_gen.get("sabados_h1", 0)),
-            "sabados_h2":       int(d_ag_gen.get("sabados_h2", 0)),
-            "dias_extra_h2":    int(d_ag_gen.get("dias_extra_h2", 0)),
-            "h0_weekday_count": int(d_ag_gen.get("h0_weekday_count", 0)),
-            "n_light_h1":       int(d_ag_gen.get("n_light_h1", 0)),
-            "n_light_h2":       int(d_ag_gen.get("n_light_h2", 0)),
+            "sabados_h1":         int(_d_g.get("sabados_h1", 0)),
+            "sabados_h2":         int(_d_g.get("sabados_h2", 0)),
+            "dias_extra_h2":      int(_d_g.get("dias_extra_h2", 0)),
+            "h0_weekday_count":   int(_d_g.get("h0_weekday_count", 0)),
+            "n_light_h1":         int(_d_g.get("n_light_h1", 0)),
+            "n_light_h2":         int(_d_g.get("n_light_h2", 0)),
+            "emisiones_totales":  round(_E_g, 1),
+            "velocidad_promedio": round(_vbpr_g, 2),
+            "impacto_economico":  round(_IE_g / 1000, 1),   # en miles de viajes
         })
 
         if mejor_fit_gen > best_fit:

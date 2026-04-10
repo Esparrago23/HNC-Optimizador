@@ -1093,17 +1093,22 @@ function renderVarsCharts(mesData) {
   const palette = ["#dc2626","#f97316","#16a34a","#2563eb","#9333ea","#0891b2"];
 
   injectDownloadBtn("tabVars", makeDownloadBtn("Descargar PNG (todas)", () =>
-    downloadMultiCanvas(["chartVarH1","chartVarH2","chartVarExtra","chartVarH0","chartVarLH1","chartVarLH2"], "evolucion_variables")));
+    downloadMultiCanvas([
+      "chartVarH1","chartVarH2","chartVarExtra","chartVarH0","chartVarLH1","chartVarLH2",
+      "chartVarEmisiones","chartVarVelocidad","chartVarImpacto",
+    ], "evolucion_variables")));
+
+  // Variables de restricción (enteras, escala fija)
   const varsConfig = [
-    { id: "chartVarH1",    key: "sabados_h1",       label: "Sábados H1",           max: 6  },
-    { id: "chartVarH2",    key: "sabados_h2",        label: "Sábados H2",           max: 6  },
-    { id: "chartVarExtra", key: "dias_extra_h2",     label: "Días Extra H2",        max: 3  },
-    { id: "chartVarH0",    key: "h0_weekday_count",  label: "Días H0 Entre Semana", max: 3  },
-    { id: "chartVarLH1",   key: "n_light_h1",        label: "Grupos Ligeros H1",    max: 5  },
-    { id: "chartVarLH2",   key: "n_light_h2",        label: "Grupos Ligeros H2",    max: 5  },
+    { id: "chartVarH1",    key: "sabados_h1",       label: "Sábados H1",           max: 6, unit: "sáb." },
+    { id: "chartVarH2",    key: "sabados_h2",        label: "Sábados H2",           max: 6, unit: "sáb." },
+    { id: "chartVarExtra", key: "dias_extra_h2",     label: "Días Extra H2",        max: 3, unit: "días" },
+    { id: "chartVarH0",    key: "h0_weekday_count",  label: "Días H0 Entre Semana", max: 3, unit: "días" },
+    { id: "chartVarLH1",   key: "n_light_h1",        label: "Grupos Ligeros H1",    max: 5, unit: "grupos" },
+    { id: "chartVarLH2",   key: "n_light_h2",        label: "Grupos Ligeros H2",    max: 5, unit: "grupos" },
   ];
 
-  varsConfig.forEach(({ id, key, label, max }, ci) => {
+  varsConfig.forEach(({ id, key, label, max, unit }, ci) => {
     const data = hvars.map(v => v[key] ?? 0);
     makeChart(id, {
       type: "line",
@@ -1123,7 +1128,72 @@ function renderVarsCharts(mesData) {
         plugins: { legend: { display: false }, title: { display: true, text: label, font: { size: 12 } } },
         scales: {
           x: { title: { display: true, text: "Gen." }, ticks: { maxTicksLimit: 10 } },
-          y: { min: 0, max, title: { display: true, text: "Valor" }, ticks: { stepSize: 1 } },
+          y: { min: 0, max, title: { display: true, text: unit }, ticks: { stepSize: 1 } },
+        },
+      },
+    });
+  });
+
+  // ── Gráficas de impacto real ──────────────────────────────────────────────
+  const impactVarsConfig = [
+    {
+      id: "chartVarEmisiones",
+      key: "emisiones_totales",
+      label: "Emisiones Totales (gr/km)",
+      color: "#b91c1c",
+      unit: "gr/km",
+      desc: "Sumatoria de contaminantes emitidos por la flota activa",
+    },
+    {
+      id: "chartVarVelocidad",
+      key: "velocidad_promedio",
+      label: "Velocidad Promedio (km/h)",
+      color: "#0284c7",
+      unit: "km/h",
+      desc: "Flujo vehicular estimado por modelo BPR",
+    },
+    {
+      id: "chartVarImpacto",
+      key: "impacto_economico",
+      label: "Impacto Económico (miles viajes)",
+      color: "#7c3aed",
+      unit: "miles viajes",
+      desc: "Viajes laborales cancelados o retrasados",
+    },
+  ];
+
+  impactVarsConfig.forEach(({ id, key, label, color, unit, desc }) => {
+    const data = hvars.map(v => v[key] ?? 0);
+    const validData = data.filter(v => v > 0);
+    const dataMax = validData.length ? Math.max(...validData) : 100;
+    const dataMin = validData.length ? Math.min(...validData) : 0;
+    const pad = (dataMax - dataMin) * 0.1 || dataMax * 0.1 || 1;
+    makeChart(id, {
+      type: "line",
+      data: {
+        labels: gens,
+        datasets: [{
+          label,
+          data,
+          borderColor: color,
+          backgroundColor: color + "22",
+          pointRadius: 1.5, pointHoverRadius: 4,
+          borderWidth: 2, tension: 0.3, fill: true,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          title: { display: true, text: label, font: { size: 12 } },
+          tooltip: { callbacks: { label: ctx => `${ctx.parsed.y.toFixed(2)} ${unit}` } },
+        },
+        scales: {
+          x: { title: { display: true, text: "Gen." }, ticks: { maxTicksLimit: 10 } },
+          y: {
+            min: Math.max(0, dataMin - pad),
+            title: { display: true, text: unit },
+          },
         },
       },
     });
@@ -1388,22 +1458,34 @@ function renderIndividuo(mesData, normalizedResult) {
                     ? `${h0dias} día${h0dias>1?"s":""} L-V`
                     : `<span style="color:#888">Libre</span>`;
 
-    // H1
+    // H1 — horario/zona base + fechas ligeras propias
     const h1sabs  = (h1c.sabados || []).length;
     const h1hora  = h1c.horario ? `${h1c.horario[0]}:00–${h1c.horario[1]}:00` : "05:00–22:00";
     const h1zona  = (h1c.zona||"total") === "centro" ? "Ctr." : "Tot.";
+    const h1light = Array.isArray(h1c.fechas_ligeras) ? h1c.fechas_ligeras : [];
+    const h1lightStr = h1light.length > 0 ? (() => {
+      const zonas = [...new Set(h1light.map(e => (e.zona||"total") === "centro" ? "Centro" : "Total"))].join("/");
+      const hors  = [...new Set(h1light.map(e => Array.isArray(e.horario) ? `${e.horario[0]}:00–${e.horario[1]}:00` : "05:00–16:00"))].join("/");
+      return `<br/><span style="color:#0891b2;font-size:0.75rem">+${h1light.length} ligero${h1light.length>1?"s":""} · ${hors} · ${zonas}</span>`;
+    })() : "";
     const h1str   = h1sabs > 0
-                    ? `${h1sabs} sáb. · ${h1hora} · ${h1zona}`
+                    ? `${h1sabs} sáb. · ${h1hora} · ${h1zona}${h1lightStr}`
                     : `<span style="color:#888">—</span>`;
 
-    // H2
+    // H2 — horario/zona base + fechas ligeras propias
     const h2sabs  = (h2c.sabados || []).length;
     const h2extra = (h2c.fechas_restriccion || []).length;
     const h2hora  = h2c.horario ? `${h2c.horario[0]}:00–${h2c.horario[1]}:00` : "05:00–22:00";
     const h2zona  = (h2c.zona||"total") === "centro" ? "Ctr." : "Tot.";
+    const h2light = Array.isArray(h2c.fechas_ligeras) ? h2c.fechas_ligeras : [];
+    const h2lightStr = h2light.length > 0 ? (() => {
+      const zonas = [...new Set(h2light.map(e => (e.zona||"total") === "centro" ? "Centro" : "Total"))].join("/");
+      const hors  = [...new Set(h2light.map(e => Array.isArray(e.horario) ? `${e.horario[0]}:00–${e.horario[1]}:00` : "05:00–16:00"))].join("/");
+      return `<br/><span style="color:#0891b2;font-size:0.75rem">+${h2light.length} ligero${h2light.length>1?"s":""} · ${hors} · ${zonas}</span>`;
+    })() : "";
     const h2total = h2c.restriccion_total
                     ? `<strong style="color:#7a1414">Restricción Total</strong>`
-                    : `${h2sabs} sáb.${h2extra>0?" + "+h2extra+" ext.":""} · ${h2hora} · ${h2zona}`;
+                    : `${h2sabs} sáb.${h2extra>0?" + "+h2extra+" ext.":""} · ${h2hora} · ${h2zona}${h2lightStr}`;
 
     // intensidad = total días afectados (LV normales + sabs extra)
     const totalDias = 4 + h1sabs + h2sabs + h2extra + h0dias; // 4 = weekdays norm H1/H2
