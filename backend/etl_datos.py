@@ -379,6 +379,73 @@ def cargar_ajustes_semanales(contam_path: Optional[Path] = None) -> Dict[str, Di
     return ajustes
 
 
+def cargar_ajustes_mensuales(contam_path: Optional[Path] = None) -> Dict[str, Dict[str, float]]:
+    """Carga un peso mensual de contaminación a partir del CSV de contaminantes."""
+    print("Cargando ajustes mensuales de contaminación...")
+
+    path = contam_path or CONTAM_PATH
+    header_row = _detect_header_row_csv(path)
+
+    acumulado: Dict[int, Dict[str, float]] = {m: {"suma": 0.0, "n": 0.0} for m in range(1, 13)}
+
+    chunk_count = 0
+    for chunk in pd.read_csv(
+        path,
+        skiprows=header_row,
+        usecols=["date", "id_parameter", "valor"],
+        chunksize=500_000,
+        low_memory=False,
+    ):
+        chunk_count += 1
+        chunk = chunk.copy()
+        chunk["valor"] = pd.to_numeric(chunk["valor"], errors="coerce")
+        chunk = chunk.dropna(subset=["valor", "date"])
+        if chunk.empty:
+            continue
+
+        chunk = chunk[chunk["id_parameter"].isin(["CO", "NO2", "PM10", "PM2.5", "O3"])]
+        if chunk.empty:
+            continue
+
+        chunk["date"] = pd.to_datetime(chunk["date"], errors="coerce")
+        chunk = chunk.dropna(subset=["date"])
+        if chunk.empty:
+            continue
+
+        chunk["month"] = chunk["date"].dt.month
+        grouped = chunk.groupby("month")["valor"].agg(["sum", "count"]).reset_index()
+        for _, row in grouped.iterrows():
+            month = int(row["month"])
+            acumulado[month]["suma"] += float(row["sum"])
+            acumulado[month]["n"] += float(row["count"])
+
+    promedios = {
+        month: (values["suma"] / values["n"] if values["n"] > 0 else 1.0)
+        for month, values in acumulado.items()
+    }
+    promedio_global = sum(promedios.values()) / max(len(promedios), 1)
+    if promedio_global <= 0:
+        promedio_global = 1.0
+
+    orden = sorted(promedios.items(), key=lambda kv: kv[1], reverse=True)
+    resultado: Dict[str, Dict[str, float]] = {}
+    for rank, (month, valor) in enumerate(orden, start=1):
+        relativo = valor / promedio_global
+        resultado[f"{month:02d}"] = {
+            "factor_contaminacion": round(clamp(relativo, 0.80, 1.35), 4),
+            "indice_contaminacion": round(float(valor), 6),
+            "ranking_contaminacion": float(rank),
+        }
+
+    print(f"  ✓ Procesados {chunk_count} chunks de contaminación mensual")
+    print(
+        "  ✓ Meses más contaminados: "
+        + ", ".join(f"{m}:{d['factor_contaminacion']:.2f}x" for m, d in list(resultado.items())[:5])
+    )
+
+    return resultado
+
+
 def estimar_pl_por_holograma(prob_laborales: Dict[str, Dict[str, float]]) -> Dict[str, float]:
     """Ajusta p_l calibrado por holograma usando el perfil laboral observado en EOD."""
     valores = [
@@ -406,6 +473,7 @@ def consolidar_entorno(
     prob_laborales: Dict[str, Dict[str, float]],
     prob_laborales_sabado: Dict[str, Dict[str, float]],
     ajustes_semanales: Dict[str, Dict[str, float]],
+    ajustes_mensuales: Optional[Dict[str, Dict[str, float]]] = None,
 ) -> Dict:
     """Consolida todos los datos en un entorno integrado."""
     print("\nConsolidando entorno...")
@@ -453,6 +521,7 @@ def consolidar_entorno(
         "probabilidad_laboral_horaria": prob_laborales,
         "probabilidad_laboral_sabado_horaria": prob_laborales_sabado,
         "ajustes_semanales": ajustes_semanales,
+        "ajustes_mensuales": ajustes_mensuales or {},
     }
 
     print(f"  ✓ Entorno consolidado con {sum(v['total'] for v in vehiculos.values()):,} vehículos")
@@ -474,6 +543,7 @@ def ejecutar_etl(
     total_vehiculos = cargar_total_vehiculos(vmrc_path)
     distribucion, factores_emision = cargar_metricas_verificacion(verif_path)
     ajustes_semanales = cargar_ajustes_semanales(contam_path)
+    ajustes_mensuales = cargar_ajustes_mensuales(contam_path)
 
     entorno = consolidar_entorno(
         total_vehiculos,
@@ -482,6 +552,7 @@ def ejecutar_etl(
         prob_laborales,
         prob_laborales_sabado,
         ajustes_semanales,
+        ajustes_mensuales,
     )
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)

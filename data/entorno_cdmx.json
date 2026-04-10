@@ -191,5 +191,67 @@
             "factor_demanda": 1.0148,
             "factor_probabilidad_laboral": 1.0074
         }
+    },
+    "ajustes_mensuales": {
+        "04": {
+            "factor_contaminacion": 1.2531,
+            "indice_contaminacion": 27.260559,
+            "ranking_contaminacion": 1.0
+        },
+        "03": {
+            "factor_contaminacion": 1.2372,
+            "indice_contaminacion": 26.913664,
+            "ranking_contaminacion": 2.0
+        },
+        "11": {
+            "factor_contaminacion": 1.1614,
+            "indice_contaminacion": 25.265407,
+            "ranking_contaminacion": 3.0
+        },
+        "05": {
+            "factor_contaminacion": 1.1458,
+            "indice_contaminacion": 24.926149,
+            "ranking_contaminacion": 4.0
+        },
+        "02": {
+            "factor_contaminacion": 1.1028,
+            "indice_contaminacion": 23.99043,
+            "ranking_contaminacion": 5.0
+        },
+        "01": {
+            "factor_contaminacion": 1.061,
+            "indice_contaminacion": 23.081047,
+            "ranking_contaminacion": 6.0
+        },
+        "12": {
+            "factor_contaminacion": 1.0269,
+            "indice_contaminacion": 22.337906,
+            "ranking_contaminacion": 7.0
+        },
+        "07": {
+            "factor_contaminacion": 0.8648,
+            "indice_contaminacion": 18.81206,
+            "ranking_contaminacion": 8.0
+        },
+        "10": {
+            "factor_contaminacion": 0.8444,
+            "indice_contaminacion": 18.368984,
+            "ranking_contaminacion": 9.0
+        },
+        "08": {
+            "factor_contaminacion": 0.816,
+            "indice_contaminacion": 17.75116,
+            "ranking_contaminacion": 10.0
+        },
+        "09": {
+            "factor_contaminacion": 0.8,
+            "indice_contaminacion": 16.624699,
+            "ranking_contaminacion": 11.0
+        },
+        "06": {
+            "factor_contaminacion": 0.8,
+            "indice_contaminacion": 15.711938,
+            "ranking_contaminacion": 12.0
+        }
     }
 }

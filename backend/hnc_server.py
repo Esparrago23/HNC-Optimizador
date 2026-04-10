@@ -56,7 +56,7 @@ def config_inicial() -> Any:
             "status": "ok",
             "grupos_placa": ag.GRUPOS_PLACA,
             "hologramas": ag.HOLOGRAMAS,
-            "dias_orden": ag.DIAS_SEMANA_LOWER,
+            "dias_orden": ag.DIAS_SEMANA,
             "colores": ag.COLOR_ORDER,
             "defaults": {
                 "params": ag.DEFAULT_PARAMS,
